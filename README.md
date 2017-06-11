@@ -3,6 +3,12 @@ Motion tracker based on opencv and Python
 
 Target: raise an action once an object crosses a line in a dedicated direction
 
+#Prerequisites
+opencv-3.X
+filterpy
+python-2.7
+
+#Status
 This is a very early alpha release.
 Currently there is no action defined when the object boundaries hit a specific position.
 What is working:

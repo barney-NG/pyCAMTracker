@@ -51,7 +51,6 @@ class WebcamVideoStream:
 				self.stream.open(self.source)
 				(self.grabbed, self.frame) = self.stream.read()
 			self.time = self.stream.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
-			print("ftime: %4.2f" % (self.time))
 		else:
 			self.time = time()
 

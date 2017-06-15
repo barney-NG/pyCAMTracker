@@ -51,12 +51,11 @@ class PiVideoStream():
 				self.camera.close()
 				return
 
-
 	def read(self):
 		# return the frame most recently read
 		frame = self.frame.copy()
 		time = self.time
-		self.event.set() #release
+		self.event.set() # take next frame
 		return time,frame
 
 	def stop(self):

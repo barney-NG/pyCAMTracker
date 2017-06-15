@@ -27,6 +27,7 @@ import numpy as np
 import cv2
 from time import sleep,clock,time
 from video import VideoStream
+from video import videoSequence
 from tracker import Background
 from tracker import SimpleTracker
 from tracker import Blobber

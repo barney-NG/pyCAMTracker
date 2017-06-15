@@ -1,0 +1,345 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1404\cocoasubrtf470
+{\fonttbl\f0\fmodern\fcharset0 Courier;}
+{\colortbl;\red255\green255\blue255;\red0\green0\blue0;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww16980\viewh14120\viewkind0
+\deftab720
+\pard\pardeftab720\sl280\partightenfactor0
+
+\f0\fs24 \cf2 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 # Introduction and Raspberry Pi ESD Precautions ################################################################################\
+\
+This cheat sheet is intended to be used in conjunction with the following video:\
+\
+(VIDEO LINK HERE WHEN DONE !!!!)\
+\
+the following other documents may also be helpful:\
+readme.txt\
+parts_list.txt\
+RaspberryPi2_J8_pinout.png\
+\
+use ESD precautions anytime the RPi is not in its case, a properly grounded ESD workstation is recommended, it would be suggested to view my video series on setting up an ESD workstation:\
+https://www.youtube.com/watch?v=iKQt5x_Zi50\
+https://www.youtube.com/watch?v=Z-GVxM9O6jA\
+https://www.youtube.com/watch?v=NOwyyCwn-Yc\
+\
+in lieu of an ESD workstation, observe the following precautions when the RPi is not in its case:\
+-do NOT work in an area where the floor is carpeted\
+-a moment before touching the RPi, touch a substantial size metal object first (ex. a computer case or metal cabinet)\
+-when handling the RPi, hold the board by the edges and only let your fingers touch the board edge or the outside of the large connectors on the board, do not let your fingers touch chips or pins\
+\
+Also, shutdown the RPi (sudo shutdown -h now) and disconnect power before breadboarding a circuit\
+\
+# Making the Raspbian SD Card #################################################################################\
+\
+download latest .zip version of Raspbian from www.raspberrypi.org, ex: "2015-09-24-raspbian-jessie.zip", then unzip\
+\
+download and install Win32DiskImager (either follow the link from this page on the Raspberry Pi official site "https://www.raspberrypi.org/documentation/installation/installing-images/windows.md" or Google "Win32 Disk Imager SourceForge"), during installation check the "Create a desktop icon", for all other choices the defaults are ok\
+\
+most computers today have an SD card slot, if yours does not you can purchase a separate USB SD card reader, ex:\
+http://www.amazon.com/Transcend-Information-Card-Reader-TS-RDF5K/dp/B009D79VH4/ref=sr_1_1?s=pc&ie=UTF8&qid=1441762580&sr=1-1&keywords=SD+card+reader\
+http://www.amazon.com/IOGEAR-MicroSD-Reader-Writer-GFR204SD/dp/B0046TJG1U/ref=sr_1_3?s=pc&ie=UTF8&qid=1441762580&sr=1-3&keywords=SD+card+reader\
+\
+insert and format your SD card (default settings are ok for the format), then open Win32DiskImager and flash Raspbian to the SD card, when flashing is complete before removing the SD card, make sure to right-click on the SD card drive letter and choose "Eject", then remove the SD card (if "Eject" is not an option then most likely write-caching is not enabled in which case choosing "Eject" is not necessary)\
+\
+# First Time Boot-up ##########################################################################################\
+\
+insert the flashed SD card into the RPi, then connect:\
+-USB keyboard\
+-USB mouse\
+-USB wireless adapter\
+-USB webcam\
+-HDMI monitor cable\
+-power (connect power last as the RPi will begin booting when power is connected, there is no "ON" switch)\
+\
+The newest version of Raspbian, Raspbian-Jessie, boots directly into the graphical desktop, once boot-up is complete, bring up a command line (choose the icon at the top that looks like a monitor), type "sudo raspi-config", and set the following options:\
+1 Expand Filesystem - set OS to fill SD card\
+3 Boot Options - set to "B1 Console"\
+4 Internationalization Options - set U.S. keyboard\
+\
+choose "Finish", when asked "Would you like to reboot?" choose "Yes", if you need to reboot from the command line type "sudo shutdown -r now" to reboot, for future reference if you need to shut down without rebooting type "sudo shutdown -h now"\
+\
+log in with the default username / password, which is pi / raspberry\
+\
+startx           # start the graphical desktop\
+\
+choose wireless icon at the top right, enter wireless router password, verify networking works\
+\
+hostname -I      # write down IP address\
+\
+sudo shutdown -r now     # reboot, you don't need to log in on the RPi after rebooting\
+\
+# PuTTY and Xming #############################################################################################\
+\
+install PuTTY (http://www.chiark.greenend.org.uk/~sgtatham/putty/download.html, choose "putty.exe")\
+\
+an installer is not necessary for PuTTY, for example you could make a directory "C:\\putty" and save putty.exe to there, then create a PuTTY shortcut on your desktop\
+\
+install Xming and Xming-fonts (http://sourceforge.net/projects/xming)\
+\
+when installing Xming and Xming-fonts, choose to create an Xming shortcut on your desktop and to install all fonts, for all other choices the defaults are ok, the Xming-fonts install may prompt "The Xming directory already exists, you want to install Xming-fonts to the same directory?", if this prompt appears choose "yes"\
+\
+reboot after installing PuTTY, Xming, and Xming-fonts\
+\
+start PuTTY and set the following settings:\
+-your RPi IP address\
+-Terminal -> Bell -> None (bell disabled)\
+-Connection -> Seconds between keepalives -> set to "30"\
+-Connection -> expand SSH -> X11 -> check "Enable X11 forwarding"\
+then save these settings by entering a preferred name in the "Saved Sessions" box, for example "my_default", then choosing Save\
+\
+to begin a PuTTY session, load your preferred settings and click "Open"\
+\
+start Xming before or just after beginning a PuTTY session if you would like to see Raspbian windows rendered on your Windows desktop computer, to verify Xming is running look for the Xming icon (black X with a red circle around it) in the "notification area" (aka "system tray") adjacent to the clock (lower right corner of your Windows screen)\
+\
+to verify PuTTY and Xming are working, start PuTTY try the following commands\
+\
+pwd                      # present working directory, should say "/home/pi" as this is the default location for the user "pi"\
+ls -l                    # lists the files in the current directory\
+pcmanfm &                # this is the graphical Raspbian file browser and should open as a separate window\
+epiphany-browser &       # this is the graphical default Raspbian internet browser, which can also be used to browse files, FTP, etc.\
+\
+to paste into a PuTTY window simply right-click anywhere in the PuTTY window, to copy from a PuTTY window simply highlight what you would like to copy (not necessary to press Ctrl+C)\
+\
+note that the "&" starts (in Linux parlance "forks") programs as a separate process from the command line session\
+\
+from this point on most of the cheat sheet is commands to be copied / pasted into a PuTTY session\
+\
+# Verify Webcam Works #########################################################################################\
+\
+lsusb           # your webcam should be listed\
+\
+cd /dev         # cd to dev directory\
+ls -l           # verify "video0" is listed, this is your webcam\
+\
+cd ~            # back to home directory\
+\
+sudo apt-get install fswebcam             # install program to take still images with your webcam\
+\
+fswebcam -r 640x480 --no-banner image.jpg       # take a still image with your webcam\
+\
+ls -l          # verify "image.jpg" is there\
+\
+pcmanfm &                         # double click on "image.jpg" to view\
+epiphany-browser "image.jpg" &    # or you can view image.jpg in the Epiphany browser with this command\
+\
+sudo apt-get install luvcview       # install webcam stream viewer\
+\
+luvcview -s 320x240                 # test webcam\
+\
+# Get a LED Blinking ##########################################################################################\
+\
+breadboard "my_blink.png"\
+\
+if you are wondering how to calculate the resistor value in this circuit, see "resistor for LED calculation.pdf"\
+\
+see "RaspberryPi2_J8_pinout.png" for a complete RPi 2 connector J8 pinout\
+\
+continuing at the RPi command line:\
+\
+cd ~                   # return to home directory if not there already\
+\
+touch my_blink.py      # create an empty file with the touch command\
+\
+# alternatively simply type the desired file name after nano (next line) and nano will create the file if it has not been created already\
+\
+nano my_blink.py       # open the file my_blink.py with the nano editor\
+\
+# copy / paste in my_blink.py from the GitHub site, then press Ctrl+O to save, then Ctrl+X to exit nano\
+\
+sudo python my_blink.py    # run the program with this command, note sudo "super user do", i.e. root access is necessary to perform hardware I/O on the RPi\
+\
+# you should now see the LED on your board blinking\
+# press Ctrl+C to exit this program, for future reference Ctrl+C exits most programs when ran from a Linux command line\
+\
+# if you would like to make your program run when Raspbian boots (i.e. for a headless embedded application) proceed as follows . . .\
+\
+sudo nano /etc/rc.local               # open rc.local in the nano editor\
+\
+# in rc.local just before "exit 0" add the following\
+\
+sudo python /home/pi/my_blink.py &         # add this to rc.local, just before "exit 0"\
+\
+# note 1: Do NOT forget the "&" to start as a separate process or the RPi will run your program indefinitely and will not continue to boot !!\
+#         Forgetting the "&" could put the RPi in an unrecoverable state (necessitating re-formatting the SD card).\
+\
+# note 2: /etc/rc.local is ran by the RPi as root during boot-up, so you don't really need to include "sudo" in the command\
+          even if accessing GPIO pins, but including sudo does not seem to hurt either.\
+\
+sudo shutdown -r now       # reboot, the LED should start blinking during RPi boot-up\
+\
+# to return to the regular boot-up, simply open rc.local again and remove the "sudo python /home/pi/my_blink.py &" line\
+\
+sudo nano /etc/rc.local          # remove the "sudo python /home/pi/my_blink.py &"\
+\
+# Using the Raspbian Provided OpenCV Pre-compiled Binaries ####################################################\
+\
+Note: I do NOT recommend following the steps in this section, this is here for information/reference only.  The recommended procedure is to not perform the steps in this section and to continue to the next section to compile OpenCV 3.0.0 or later from source.\
+\
+Raspbian includes OpenCV precompiled binaries, which as of the most recent release are only moderately out of date (OpenCV 2.4.9).  At a RPi command line enter the following:\
+\
+dpkg -l | less\
+\
+This will list all installed packages.  Navigate to the opencv libs and you will see the version of the OpenCV libraries included with the current Raspbian build is 2.4.9, which was released in April of 2014.  If you would like to use these pre-compiled binaries, proceed as follows at the RPi command line (as mentioned above this is NOT recommended):\
+\
+sudo apt-get update\
+sudo apt-get upgrade\
+\
+sudo apt-get install libopencv-dev python-opencv\
+\
+# verify the OpenCV install\
+\
+python\
+>>> import cv2\
+>>> cv2.__version__        # will say "2.4.9" if pre-compiled binary installation was successful\
+\
+Note that if you use these old pre-compiled binaries the OpenCV Python programs used in this tutorial will NOT work since they have been written for OpenCV 3.\
+\
+# OpenCV Compile ################################################################################################\
+\
+# this takes about 3.5 hours total on a RPi 2, the make command alone takes about 3 hours\
+\
+cd ~\
+\
+sudo apt-get update\
+sudo apt-get upgrade\
+\
+sudo apt-get install python-numpy python-scipy python-matplotlib\
+\
+sudo apt-get install build-essential cmake pkg-config\
+\
+sudo apt-get install default-jdk ant\
+\
+sudo apt-get install libgtkglext1-dev\
+\
+sudo apt-get install v4l-utils\
+\
+sudo apt-get install libjpeg8 \\\
+libjpeg8-dev \\\
+libjpeg8-dbg \\\
+libjpeg-progs \\\
+libavcodec-dev \\\
+libavformat-dev \\\
+libgstreamer0.10-0-dbg \\\
+libgstreamer0.10-0 \\\
+libgstreamer0.10-dev \\\
+libxine2-dev \\\
+libunicap2 \\\
+libunicap2-dev \\\
+swig \\\
+libv4l-0 \\\
+libv4l-dev \\\
+python-numpy \\\
+libpython2.7 \\\
+python-dev \\\
+python2.7-dev \\\
+libgtk2.0-dev \\\
+libjasper-dev \\\
+libpng12-dev \\\
+libswscale-dev\
+\
+wget http://sourceforge.net/projects/opencvlibrary/files/opencv-unix/3.0.0/opencv-3.0.0.zip\
+\
+unzip opencv-3.0.0.zip\
+\
+cd opencv-3.0.0\
+\
+mkdir build\
+\
+cd build\
+\
+cmake -D CMAKE_BUILD_TYPE=RELEASE \\\
+-D INSTALL_C_EXAMPLES=ON \\\
+-D INSTALL_PYTHON_EXAMPLES=ON \\\
+-D BUILD_EXAMPLES=ON \\\
+-D CMAKE_INSTALL_PREFIX=/usr/local \\\
+-D WITH_V4L=ON ..\
+\
+# The next command, make, takes about 3 hours and pushes the RPi to the limits of what it is capable of, and as a result the RPi will get noticeably warm\
+# To prevent overheating, it would be best to remove the top of the case and perch the RPi on a small metal object to facilitate air circulation and heat dissipation\
+\
+sudo make            # this takes about 3 hours on the RPi 2\
+\
+sudo make install\
+\
+sudo nano /etc/ld.so.conf.d/opencv.conf\
+\
+# opencv.conf will be blank, add the following line, then save and exit nano:\
+\
+/usr/local/lib          # enter this in opencv.conf, NOT at the command line\
+(leave a blank line at the end of opencv.conf)\
+\
+# back to the command line\
+\
+sudo ldconfig\
+\
+sudo nano /etc/bash.bashrc\
+\
+# add the following lines at the bottom of bash.bashrc\
+\
+PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/usr/local/lib/pkgconfig       # enter these at the bottom of bash.bashrc, NOT at the command line\
+export PKG_CONFIG_PATH                                          # enter these at the bottom of bash.bashrc, NOT at the command line\
+(leave a blank line at the end of bash.bashrc)\
+\
+# save bash.bashrc changes, then back at the command line, reboot\
+\
+sudo shutdown -r now\
+\
+# after rebooting, verify our OpenCV install\
+\
+python                       # enter interactive Python prompt session\
+>>> import cv2\
+>>> cv2.__version__\
+\
+# should say your OpenCV version, i.e. '3.0.0', press Ctrl+D to exit the Python prompt session\
+\
+# Test OpenCV Programs ###########################################################################################\
+\
+from the GitHub page, copy / paste OpenCVTest1.py, OpenCVTest2.py, and OpenCVTest3.py into nano and run to test your OpenCV compile, ex:\
+\
+nano OpenCVTest1.py          # copy/paste in OpenCVTest1.py\
+\
+python OpenCVTest1.py        # test OpenCVTest1.py\
+\
+nano OpenCVTest2.py          # copy/paste in OpenCVTest2.py\
+\
+python OpenCVTest2.py        # test OpenCVTest2.py\
+\
+nano OpenCVTest3.py          # copy/paste in OpenCVTest3.py\
+\
+python OpenCVTest3.py        # test OpenCVTest2.py\
+\
+# Example Servo Motor Control Program ############################################################################\
+\
+# to try out PWM on the RPi, breadboard LED_PWM.png (same circuit as my_blink.png above) then make LED_PWM.py and open in nano\
+\
+cd ~                          # return to home directory if not there already\
+touch LED_PWM.py              # make empty file LED_PWM.py\
+nano LED_PWM.py               # copy/paste in LED_PWM.py from the GitHub site\
+\
+sudo python LED_PWM.py        # this is a simple program that controls LED brightness via PWM\
+\
+# next breadboard simple_servo.png, then create the program\
+\
+nano simple_servo.py            # copy/paste in simple_servo.py\
+\
+sudo python simple_servo.py     # simple program to control servo motor angle from the command line\
+\
+# the timing for your servo may be different, see "example servo timing calculation.pdf"\
+\
+# Finale (putting it all together) - Pan and Tilt Tracker ########################################################\
+\
+# breadboard pan_and_tilt_tracker.png\
+\
+nano pan_and_tilt_tracker.py     # copy / paste in pan_and_tilt_tracker.py, the webcam will pan/tilt on the servos to follow a red ball\
+\
+sudo python pan_and_tilt_tracker.py headed        # this will start pan_and_tilt_tracker.py with windows showing the tracking\
+sudo python pan_and_tilt_tracker.py headless      # this will start pan_and_tilt_tracker.py without windows\
+\
+\
+\
+\
+\
+\
+\
+\
+}

@@ -237,9 +237,10 @@ class SeperatorKNN:
         return True, rangeRes
 
 class simpleBackground:
-    def __init__(self, history=5, threshold=80):
-        self.maxlen = history
+    def __init__(self, delay=3, threshold=80):
+        self.maxlen = delay
         self.threshold = threshold
+        self.stack  = []
         self.mean   = None
 
     def seperate(self, img):
@@ -248,10 +249,16 @@ class simpleBackground:
 
         if self.mean is None:
             self.mean = gray.copy().astype("float32")
+            for i in range(self.maxlen):
+                self.stack.append(gray.copy())
 
         # calculate a new running average (src, dst, alpha)
         # dst = (1-alpha) * dst + alpha * src
-        self.mean = cv2.accumulateWeighted(gray, self.mean, 0.5)
+        #self.mean = cv2.accumulateWeighted(gray, self.mean, 0.5)
+        # use an old image to build the mean
+        old_gray = self.stack.pop(0)
+        self.mean = cv2.accumulateWeighted(old_gray, self.mean, 0.05)
+        self.stack.append(gray)
 
         # (src, dst, scale=1.0, shift=0.0)
         # dst = <uchar8> scale * src + shift
@@ -263,7 +270,7 @@ class simpleBackground:
         #diff = cv2.absdiff(gray, cv2.convertScaleAbs(self.mean))
 
         ret, thres = cv2.threshold(diff, self.threshold, 255, cv2.THRESH_BINARY)
-        thres = cv2.dilate(thres, None, iterations=2)
+        thres = cv2.dilate(thres, None, iterations=3)
 
         return True, thres
 

@@ -329,10 +329,16 @@ class track:
         self.prio = len(old_track)
 
         self.szs = size
+        # measured track
         self.tr  = old_track[:]
-        # >>> debug
+        # predicted track
         self.ptr = old_track[:]
-        # <<< debug
+
+        # estimate initial direction and turn rate
+        alpha2 = atan2(old_track[-1][1], old_track[-1][0])
+        alpha1 = atan2(old_track[-2][1], old_track[-2][0])
+        self.angle = alpha2
+        self.omega = (alpha1 - alpha2) / dt
 
         #    the track identity
         self._setIdentity()
@@ -341,26 +347,19 @@ class track:
         self.sy = max_movement / 2
         self.maxm = max_movement
         self.minm = min_movement
-        self.dpi = pi/4.0
+        self.dpi = pi/2.0
 
         # setup Kalman filter
-        #self.km = spline.filterSpline(self.tr,dt=dt)
-        #self.sx = self.km.xspl.get_residual()
-        #self.sy = self.km.yspl.get_residual()
         # omega = an / v (an := accelleration normal to tangent)
         # p : covariance
         # r_std : process noise variance
-        omega = dt
-        # estimate initial direction
-        if self.x - old_track[0][0] >= 0:
-            omega = -omega
 
-        self.km = imm.filterIMM(dt=dt, omega=omega, p=50.0, r_std=0.1, q_std=0.1)
+        self.km = imm.filterIMM(dt=dt, omega=self.omega, p=50.0, r_std=0.1, q_std=0.1)
         for x,y in self.tr:
             self.km.update(x,y)
         self.px = self.x
         self.py = self.y
-        self.updateDirection()
+        self.updateSearchRange()
 
     def findHit(self, hits):
         prediction = np.array([self.px,self.py])
@@ -371,11 +370,13 @@ class track:
         minindex   = np.argmin(distance,axis=0)
         mindist    = np.amin(distance)
 
-
         # check if target is in right direction
         angle_maxdiff = self.dpi
         angle2hit     = atan2(hits[minindex][1]-self.y, hits[minindex][0]-self.x)
         angle_diff    = abs(self.angle - angle2hit)
+        if angle_diff > pi:
+            angle_diff = 2 * pi - angle_diff
+
         if angle_diff > angle_maxdiff:
             print("[%s] angle: %4.2f > %4.2f!" % (self.name, angle_diff, angle_maxdiff))
             minindex = -1
@@ -388,16 +389,28 @@ class track:
 
         return minindex
 
-    def updateDirection(self):
+    def updateDirection(self,dt=0.04):
         # make direction vector using the last prediction
+
         if self.predicts == 0:
+            #old_angle = self.angle
             self.direction = np.array([self.x - self.tr[-2][0],
                                     self.y - self.tr[-2][1]])
+            self.angle = atan2(self.direction[1],self.direction[0])
+            #new_omega = (self.angle - old_angle) / dt
+            #delta_omega = self.omega - new_omega
+            #if abs(delta_omega) > abs(self.omega * 0.3):
+            #    self.km.updateFt(new_omega, dt)
+            #    print("omega: %4.2f -> %4.2f angle: %4.2f -> %4.2f" % (self.omega, new_omega, old_angle, self.angle))
+            #    self.omega = new_omega
+
         else:
             self.direction = np.array([self.px - self.x,
                                        self.py - self.y])
 
-        self.angle = atan2(self.direction[1],self.direction[0])
+            self.angle = atan2(self.direction[1],self.direction[0])
+
+
         self.updateSearchRange()
 
     def updateSearchRange(self):
@@ -433,7 +446,7 @@ class track:
         #self.sx = 6.0 * s[0] # +/- 3 + sigma**2
         #self.sy = 6.0 * s[1] # +/- 3 * sigma**2
 
-    def update(self, xnew, ynew, sznew, dt=0.1):
+    def update(self, xnew, ynew, sznew, dt=0.04):
         print("[%s] update %d,%d" %(self.name, xnew, ynew))
         self.x = xnew; self.y = ynew
         self.szs = sznew
@@ -441,11 +454,11 @@ class track:
         self.km.update(xnew,ynew)
         self.tr.append([xnew,ynew])
         self.prio += 1
-        self.updateDirection()
+        self.updateDirection(dt)
         #return (self.px,self.py)
         return
 
-    def predict(self, dt):
+    def predict(self, dt=0.04):
         self.predicts += 1
         xnew,ynew = self.km.predict(dt)
         print("[%s] predict %d,%d" %(self.name, xnew, ynew))

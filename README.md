@@ -1,4 +1,4 @@
-# pyCAMot
+# pyCAMTracker
 Motion tracker based on opencv and Python
 
 Target: raise an action once an object crosses a line in a dedicated direction

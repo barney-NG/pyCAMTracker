@@ -1,5 +1,7 @@
 import cv2
 import numpy as np
+from skimage.measure import compare_ssim
+
 '''
     MOG2
 
@@ -237,40 +239,32 @@ class SeperatorKNN:
         return True, rangeRes
 
 class simpleBackground:
-    def __init__(self, delay=3, threshold=80):
+    def __init__(self, delay=3, threshold=250):
         self.maxlen = delay
         self.threshold = threshold
-        self.stack  = []
-        self.mean   = None
+        ##self.stack  = []
+        ##self.mean   = None
+        self.prev_gray = None
+        self.dark      = None
 
     def seperate(self, img):
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         gray = cv2.GaussianBlur(gray, (3, 3), 0)
 
-        if self.mean is None:
-            self.mean = gray.copy().astype("float32")
-            for i in range(self.maxlen):
-                self.stack.append(gray.copy())
+        if self.prev_gray is None:
+            self.prev_gray = gray
+            self.dark = np.zeros(gray.shape, np.uint8)
 
-        # calculate a new running average (src, dst, alpha)
-        # dst = (1-alpha) * dst + alpha * src
-        #self.mean = cv2.accumulateWeighted(gray, self.mean, 0.5)
-        # use an old image to build the mean
-        old_gray = self.stack.pop(0)
-        self.mean = cv2.accumulateWeighted(old_gray, self.mean, 0.05)
-        self.stack.append(gray)
+        (score, diff) = compare_ssim(gray, self.prev_gray, full=True)
+        print("SSIM: {}".format(score))
+        diff = (diff * 255).astype("uint8")
+        self.prev_gray = gray
+        ret, thres = cv2.threshold(diff, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        print("ret: %d" % (ret))
+        if ret > 250:
+            thres = self.dark
 
-        # (src, dst, scale=1.0, shift=0.0)
-        # dst = <uchar8> scale * src + shift
-        tmp_mean = cv2.convertScaleAbs(self.mean)
-
-        # calculate difference to running average
-        diff = 4 * cv2.absdiff(gray, tmp_mean)
-
-        #diff = cv2.absdiff(gray, cv2.convertScaleAbs(self.mean))
-
-        ret, thres = cv2.threshold(diff, self.threshold, 255, cv2.THRESH_BINARY)
-        thres = cv2.dilate(thres, None, iterations=3)
+        thres = cv2.dilate(thres, None, iterations=2)
 
         return True, thres
 
@@ -315,3 +309,41 @@ class simpleBackgroundV1:
         self.index += 1; self.index %= self.maxlen
 
         return True,thres
+
+class simpleBackgroundV2:
+    def __init__(self, delay=3, threshold=80):
+        self.maxlen = delay
+        self.threshold = threshold
+        self.stack  = []
+        self.mean   = None
+
+    def seperate(self, img):
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        gray = cv2.GaussianBlur(gray, (3, 3), 0)
+
+        if self.mean is None:
+            self.mean = gray.copy().astype("float32")
+            for i in range(self.maxlen):
+                self.stack.append(gray.copy())
+
+        # calculate a new running average (src, dst, alpha)
+        # dst = (1-alpha) * dst + alpha * src
+        #self.mean = cv2.accumulateWeighted(gray, self.mean, 0.5)
+        # use an old image to build the mean
+        old_gray = self.stack.pop(0)
+        self.mean = cv2.accumulateWeighted(old_gray, self.mean, 0.05)
+        self.stack.append(gray)
+
+        # (src, dst, scale=1.0, shift=0.0)
+        # dst = <uchar8> scale * src + shift
+        tmp_mean = cv2.convertScaleAbs(self.mean)
+
+        # calculate difference to running average
+        diff = 4 * cv2.absdiff(gray, tmp_mean)
+
+        #diff = cv2.absdiff(gray, cv2.convertScaleAbs(self.mean))
+
+        ret, thres = cv2.threshold(diff, self.threshold, 255, cv2.THRESH_BINARY)
+        thres = cv2.dilate(thres, None, iterations=3)
+
+        return True, thres

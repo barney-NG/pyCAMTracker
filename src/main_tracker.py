@@ -110,7 +110,7 @@ class App:
         self.frame  = None
         self.camera = None
         self.name   = 'tracker'
-        self.threaded = True
+        self.threaded = False
         #self.tracker = lktracker.LKTracker()
 
         cv2.namedWindow(self.name)

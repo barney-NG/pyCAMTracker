@@ -1,3 +1,11 @@
+# -*- coding: utf-8 -*-
+
+"""Copyright 2017 Axel Barnitzke
+
+Based on FilterPy library by Roger R Labbe Jr.
+http://github.com/rlabbe/filterpy
+"""
+
 import numpy as np
 import copy
 from filterpy.kalman import IMMEstimator
@@ -140,112 +148,35 @@ class filterIMM:
                        [0., 0., 0.]])
         self.cv.F = block_diag(Fv,Fv)
 
-    def setMuMax(self):
-        self.mu_max = 0.
-        for i in range(len(self.filters)):
-            if self.bank.mu[i] > self.mu_max:
-                self.mu_max = self.bank.mu[i]
-
     def update(self,x,y):
         ## update measured values
         z = np.array([[x,y]]).T
         self.predicts = 0
-        #print("x: %4.2f, y: %4.2f" % (z[0], z[1]))
         self.bank.update(z)
-        self.setMuMax()
 
+    # make a prediction
+    # this routine should be moved to filterpy/Kalman/IMM.py
     def predict(self, dt=0.1):
-        ## TODO: weight the mixed predictions from each Kalman filter
-        ## TODO: Update deltaT in Transition State Matrix F
         x = np.zeros(self.bank.x.shape)
         self.predicts += 1
-        self.mu_max = 0.
-        for i,f in enumerate(self.filters):
-            f.predict()
-            if self.bank.mu[i] > self.mu_max:
-                self.mu_max = self.bank.mu[i]
-                if self.predicts > 1:
-                    self.bank.P = f.P.copy()
-                x = f._x.copy()
 
-        #self.update(x[0], x[3])
+        # build output according filter probabilities
+        for f, w in zip(self.filters, self.bank.mu):
+            f.predict(dt)
+            x += f._x * w
 
-        ##return x,y tuple
         return((x[0], x[3]))
 
-'''
-OLD STUFF
+    # make a prediction
+    # this routine should be moved to filterpy/Kalman/IMM.py
+    def predict1(self, dt=0.1):
+        x = np.zeros(self.bank.x.shape)
+        self.predicts += 1
+        mu_max = 0.0
+        for i,f in enumerate(self.filters):
+            f.predict()
+            if self.bank.mu[i] > mu_max:
+                mu_max = self.bank.mu[i]
+                x = f._x.copy()
 
-def FirstOrderKF(R, Q, dt):
-    """ Create first order Kalman filter.
-    Specify R and Q as floats."""
-    kf = KalmanFilter(dim_x=2, dim_z=1)
-    kf.x = np.zeros(2)
-    kf.P *= np.array([[100, 0], [0, 1]])
-    kf.R *= R
-    kf.Q = Q_discrete_white_noise(2, dt, Q)
-    kf.F = np.array([[1., dt],
-                     [0., 1]])
-    kf.H = np.array([[1., 0]])
-    return kf
-
-def SecondOrderKF(R_std, Q, dt, P=100):
-    """ Create second order Kalman filter.
-    Specify R and Q as floats."""
-    kf = KalmanFilter(dim_x=3, dim_z=1)
-    kf.x = np.zeros(3)
-    kf.P[0, 0] = P
-    kf.P[1, 1] = 1
-    kf.P[2, 2] = 1
-    kf.R *= R_std**2
-    kf.Q = Q_discrete_white_noise(3, dt, Q)
-    #    x    vx   y    vy
-    kf.F = np.array([[1., dt, .5*dt*dt],
-                     [0., 1.,       dt],
-                     [0., 0.,       1.]])
-    kf.H = np.array([[1., 0., 0.]])
-    return kf
-
-def pos_vel_filter(x, P, R, Q=0., dt=1.0):
-    """ Returns a KalmanFilter which implements a
-    constant velocity model for a state [x dx].T
-    """
-
-    kf = KalmanFilter(dim_x=2, dim_z=1)
-    kf.x = np.array([x[0], x[1]]) # location and velocity
-    kf.F = np.array([[1., dt],
-                     [0.,  1.]])  # state transition matrix
-    kf.H = np.array([[1., 0]])    # Measurement function
-    kf.R *= R                     # measurement uncertainty
-    if np.isscalar(P):
-        kf.P *= P                 # covariance matrix
-    else:
-        kf.P[:] = P               # [:] makes deep copy
-    if np.isscalar(Q):
-        kf.Q = Q_discrete_white_noise(dim=2, dt=dt, var=Q)
-    else:
-        kf.Q[:] = Q
-    return kf
-
-def pos_acc_filter(x, P, R, Q=0., dt=1.0):
-    """ Returns a KalmanFilter which implements a
-    constant acceleration model for a state [x dx].T
-    """
-
-    kf = KalmanFilter(dim_x=3, dim_z=1)
-    kf.x = np.array([x[0], x[1], x[2]]) # location, velocity and acceleration
-    kf.F = np.array([[1., dt, .5*dt**2],
-                     [0.,  1.,    0.  ],
-                     [0.,  0.,    1.  ]])  # state transition matrix
-    kf.H = np.array([[1., 0]])    # Measurement function
-    kf.R *= R                     # measurement uncertainty
-    if np.isscalar(P):
-        kf.P *= P                 # covariance matrix
-    else:
-        kf.P[:] = P               # [:] makes deep copy
-    if np.isscalar(Q):
-        kf.Q = Q_discrete_white_noise(dim=3, dt=dt, var=Q)
-    else:
-        kf.Q[:] = Q
-    return kf
-'''
+        return((x[0], x[3]))

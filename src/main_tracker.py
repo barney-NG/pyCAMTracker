@@ -46,10 +46,10 @@ maxd = parser.getint('Object','maxsize')
 mind = parser.getint('Object','minsize')
 hthres = 400.0
 min_speed = 5
-imageSizeX = 300
-imageSizeY = 400
-#imageSizeX = 640
-#imageSizeY = 480
+#imageSizeX = 300
+#imageSizeY = 400
+imageSizeX = 640
+imageSizeY = 480
 
 new_time = 0.0
 old_time = 0.0
@@ -72,7 +72,7 @@ params.blobColor = 255
 
 # Filter by Area.
 params.filterByArea = True
-params.minArea = 50
+params.minArea = 100
 params.maxArea = 50000
 
 # Filter by Circularity
@@ -110,7 +110,7 @@ class App:
         self.frame  = None
         self.camera = None
         self.name   = 'tracker'
-        self.threaded = False
+        self.threaded = True
         #self.tracker = lktracker.LKTracker()
 
         cv2.namedWindow(self.name)
@@ -148,18 +148,19 @@ class App:
         global old_time
 
         old_time,img = self.cap.read()
-        #print("init time: %d" % (old_time))
+        print("init time: %d" % (old_time))
         imageSizeY,imageSizeX = img.shape[:2]
         print(imageSizeX, imageSizeY)
 
         self.tracker = SimpleTracker.SimpleTracker(imageSizeX = imageSizeX, imageSizeY = imageSizeY)
         #self.tracker = SimpleTrackerIMM.SimpleTracker(imageSizeX = imageSizeX, imageSizeY = imageSizeY)
 
-        #self.bgSeperator = Background.SeperatorMOG2(hist=64, shadows=False)
+        #self.bgSeperator = Background.SeperatorMOG2(hist=8, shadows=False)
+        #self.bgSeperator = Background.SeperatorGMG(hist=64, shadows=False)
         #self.bgSeperator = Background.SeperatorKNN(shadows=False)
         self.bgSeperator = Background.simpleBackground()
 
-        self.detector = cv2.SimpleBlobDetector_create(params)
+        #self.detector = cv2.SimpleBlobDetector_create(params)
         self.ddd = Blobber.blobDetector(params)
 
         if self.threaded:
@@ -366,9 +367,10 @@ class App:
                 boxes     = self.results[index].boxes
 
 
-                if dt < 1e-10:
+                if abs(dt) < 1e-10:
                     dt=0.04
                 frate = '%4.2f' %  (1.0/dt)
+                print("frate: %s" % (frate))
                 str_frate = '%6s %5.2f, %5.2f, %5.2f, %5.2f %d' %  (frate, \
                   self.results[index].times[0], \
                   self.results[index].times[1], \

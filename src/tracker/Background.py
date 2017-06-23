@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from skimage.measure import compare_ssim
+#from skimage.measure import compare_ssim
 
 '''
     MOG2
@@ -39,26 +39,7 @@ from skimage.measure import compare_ssim
 class SeperatorMOG2:
     def __init__(self, hist=120, shadows=True):
     	# Use Gaussian mixture based subtractor
-    	self.bgsub   = cv2.createBackgroundSubtractorMOG2(history=hist, detectShadows=shadows)
-    	if shadows:
-    		self.bgsub.setShadowValue(0)
-
-    	#- small objects
-    	self.d0kernel  = np.ones((3,3),np.uint8)
-    	self.e0kernel  = np.ones((3,3),np.uint8)
-    	#- medium objects
-    	self.d1kernel  = np.ones((5,5),np.uint8)
-    	self.e1kernel  = np.ones((5,5),np.uint8)
-    	#- large objects
-    	self.d2kernel  = np.ones((7,7),np.uint8)
-
-	#def sepWorker(self):
-	#	while True:
-	#		img = self.q.get()
-	#		if img is None:
-	#			break
-	#		self.doSeperate(img)
-	#		self.q.task_done()
+    	self.bgsub   = cv2.createBackgroundSubtractorMOG2(history=hist, varThreshold=70, detectShadows=shadows)
 
     def getVarThreshold(self):
     	return self.bgsub.getVarThreshold()
@@ -69,20 +50,6 @@ class SeperatorMOG2:
     #
     def seperate(self, img):
         rangeRes = self.bgsub.apply(img)
-
-        #source, spatial radius, color radius, destination
-        ## Improving the result
-        #rangeRes = cv2.dilate(rangeRes, self.dkernel, iterations=self.dilates )
-        #rangeRes = cv2.erode(rangeRes, self.ekernel, iterations=2 )
-        #rangeRes = cv2.erode(rangeRes, self.e1kernel, iterations=1 )
-
-        # small objects
-        #-rangeRes = cv2.dilate(rangeRes, self.d2kernel, iterations=1 )
-        #rangeRes = cv2.pyrDown(rangeRes)
-        #rangeRes = cv2.erode(rangeRes, self.e0kernel, iterations=1 )
-
-        #-rangeRes = cv2.erode(rangeRes, self.e0kernel, iterations=2 )
-        #rangeRes = cv2.pyrUp(rangeRes)
         rangeRes = cv2.dilate(rangeRes, None, iterations=2)
         return True,rangeRes
 
@@ -123,45 +90,21 @@ class SeperatorMOG2:
     virtual void setMaxVal(double val)  { maxVal_ = val; }
 '''
 class SeperatorGMG:
-	def __init__(self, hist=120, shadows=True):
-		# Use Gaussian mixture based subtractor
-		self.bgsub   = cv2.bgsegm.createBackgroundSubtractorGMG(20, 0.7)
+    def __init__(self, hist=120, shadows=True):
+        # Use Gaussian mixture based subtractor
+        self.bgsub   = cv2.bgsegm.createBackgroundSubtractorGMG(initializationFrames=20, decisionThreshold=0.95)
 
-		#- small objects
-		self.d0kernel  = np.ones((3,3),np.uint8)
-		self.e0kernel  = np.ones((3,3),np.uint8)
-		#- medium objects
-		self.d1kernel  = np.ones((5,5),np.uint8)
-		self.e1kernel  = np.ones((5,5),np.uint8)
-		#- large objects
-		self.e2kernel  = np.ones((11,11),np.uint8)
+    def getVarThreshold(self):
+        return self.bgsub.getDecisionThreshold()
 
-	#def sepWorker(self):
-	#	while True:
-	#		img = self.q.get()
-	#		if img is None:
-	#			break
-	#		self.doSeperate(img)
-	#		self.q.task_done()
+    def setVarThreshold(self, value):
+        self.bgsub.setDecisionThreshold(value)
 
-	def getVarThreshold(self):
-		return self.bgsub.getDecisionThreshold()
+    def seperate(self, img, learningRate=-1.0):
+        rangeRes = self.bgsub.apply(img)
+        #rangeRes = cv2.dilate(rangeRes, None, iterations=2)
+        return True, rangeRes
 
-	def setVarThreshold(self, value):
-		self.bgsub.setDecisionThreshold(value)
-
-	def seperate(self, img, learningRate=-1.0):
-		rangeRes = self.bgsub.apply(img)
-		## Improving the result
-		#rangeRes = cv2.dilate(rangeRes, self.dkernel, iterations=self.dilates )
-		#rangeRes = cv2.erode(rangeRes, self.ekernel, iterations=2 )
-		#rangeRes = cv2.erode(rangeRes, self.e1kernel, iterations=1 )
-
-		# small objects
-		#rangeRes = cv2.dilate(rangeRes, self.d0kernel, iterations=1 )
-		#rangeRes = cv2.erode(rangeRes, self.e0kernel, iterations=1 )
-		#rangeRes = cv2.erode(rangeRes, self.e1kernel, iterations=1 )
-		return True, rangeRes
 '''
     KNN
     BackgroundSubtractorKNNImpl(int _history,  float _dist2Threshold, bool _bShadowDetection=true)
@@ -193,19 +136,9 @@ class SeperatorKNN:
     def __init__(self, hist=16, shadows=True):
         # Use Gaussian mixture based subtractor
         self.bgsub   = cv2.createBackgroundSubtractorKNN(hist, 400.0, shadows)
-        #self.bgsub   = cv2.createBackgroundSubtractorKNN()
 
         if shadows:
         	self.bgsub.setShadowValue(0)
-
-        #- small objects
-        self.d0kernel  = np.ones((3,3),np.uint8)
-        self.e0kernel  = np.ones((3,3),np.uint8)
-        #- medium objects
-        self.d1kernel  = np.ones((5,5),np.uint8)
-        self.e1kernel  = np.ones((5,5),np.uint8)
-        #- large objects
-        self.e2kernel  = np.ones((11,11),np.uint8)
 
     def getVarThreshold(self):
     	return self.bgsub.getDist2Threshold()
@@ -216,29 +149,10 @@ class SeperatorKNN:
     def seperate(self, img):
         #gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     	rangeRes = self.bgsub.apply(img)
-        #hist = np.bincount(rangeRes.ravel(),minlength=256)
-        #hist = cv2.calcHist([rangeRes],[0],None,[256],[0,256])
-        #darkness = float(hist[0]) / float(hist[0] + hist[255])
-        #print("darkness: %4.2f (%d/%d)" % (darkness, hist[0], hist[255]))
-    	## Improving the result
-    	#rangeRes = cv2.dilate(rangeRes, self.d0kernel, iterations=1 )
-    	#rangeRes = cv2.erode(rangeRes, self.e0kernel, iterations=2 )
-    	#rangeRes = cv2.erode(rangeRes, self.e1kernel, iterations=1 )
-
-    	# medium objects
-    	###rangeRes = cv2.dilate(rangeRes, self.d1kernel, iterations=2 )
-        #rangeRes = cv2.dilate(rangeRes, self.d0kernel, iterations=1 )
-        rangeRes = cv2.dilate(rangeRes, None, iterations=2)
-        ##rangeRes = cv2.erode(rangeRes, self.e0kernel, iterations=2 )
-        ##rangeRes = cv2.erode(rangeRes, self.e1kernel, iterations=1 )
-        # small objects
-    	#rangeRes = cv2.dilate(rangeRes, self.d0kernel, iterations=2 )
-    	#rangeRes = cv2.erode(rangeRes, self.e0kernel, iterations=1 )
-    	#rangeRes = cv2.erode(rangeRes, self.e1kernel, iterations=1 )
-    	#return darkness > 0.8, rangeRes
+        rangeRes = cv2.dilate(rangeRes, None, iterations=3)
         return True, rangeRes
 
-class simpleBackground:
+class simpleBackgroundV3:
     def __init__(self, delay=3, threshold=250):
         self.maxlen = delay
         self.threshold = threshold
@@ -255,6 +169,7 @@ class simpleBackground:
             self.prev_gray = gray
             self.dark = np.zeros(gray.shape, np.uint8)
 
+        # nice but it takes too much resources
         (score, diff) = compare_ssim(gray, self.prev_gray, full=True)
         print("SSIM: {}".format(score))
         diff = (diff * 255).astype("uint8")
@@ -310,19 +225,21 @@ class simpleBackgroundV1:
 
         return True,thres
 
-class simpleBackgroundV2:
+class simpleBackground:
     def __init__(self, delay=3, threshold=80):
         self.maxlen = delay
         self.threshold = threshold
         self.stack  = []
         self.mean   = None
+        self.dark      = None
 
     def seperate(self, img):
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        gray = cv2.GaussianBlur(gray, (3, 3), 0)
+        gray = cv2.GaussianBlur(gray, (5, 5), 0)
 
         if self.mean is None:
             self.mean = gray.copy().astype("float32")
+            self.dark = np.zeros(gray.shape, np.uint8)
             for i in range(self.maxlen):
                 self.stack.append(gray.copy())
 
@@ -331,7 +248,7 @@ class simpleBackgroundV2:
         #self.mean = cv2.accumulateWeighted(gray, self.mean, 0.5)
         # use an old image to build the mean
         old_gray = self.stack.pop(0)
-        self.mean = cv2.accumulateWeighted(old_gray, self.mean, 0.05)
+        self.mean = cv2.accumulateWeighted(old_gray, self.mean, 0.1)
         self.stack.append(gray)
 
         # (src, dst, scale=1.0, shift=0.0)
@@ -339,11 +256,18 @@ class simpleBackgroundV2:
         tmp_mean = cv2.convertScaleAbs(self.mean)
 
         # calculate difference to running average
-        diff = 4 * cv2.absdiff(gray, tmp_mean)
+        #diff = 4 * cv2.absdiff(gray, tmp_mean)
+        diff = cv2.absdiff(gray, tmp_mean)
 
         #diff = cv2.absdiff(gray, cv2.convertScaleAbs(self.mean))
 
-        ret, thres = cv2.threshold(diff, self.threshold, 255, cv2.THRESH_BINARY)
-        thres = cv2.dilate(thres, None, iterations=3)
+        #ret, thres = cv2.threshold(diff, self.threshold, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        ret, thres = cv2.threshold(diff, 180, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+        print("threshold: %d" % (ret))
+        if ret > 9:
+            thres = cv2.dilate(thres, None, iterations=3)
+        else:
+            thres = self.dark
 
         return True, thres

@@ -328,6 +328,7 @@ class track:
         self.y    = old_track[-1][1]
         self.prio = len(old_track)
 
+        # size of te object
         self.szs = size
         # measured track
         self.tr  = old_track[:]
@@ -338,27 +339,37 @@ class track:
         alpha2 = atan2(old_track[-1][1], old_track[-1][0])
         alpha1 = atan2(old_track[-2][1], old_track[-2][0])
         self.angle = alpha2
+        if abs(dt) < 1e-99:
+            dt = 0.04
         self.omega = (alpha1 - alpha2) / dt
 
-        #    the track identity
+        # the track identity
         self._setIdentity()
         self.predicts = 0
+        # set uncertainty
         self.sx = max_movement / 2
         self.sy = max_movement / 2
+        # restrict the movement
         self.maxm = max_movement
         self.minm = min_movement
+        # max delta angle
         self.dpi = pi/2.0
 
-        # setup Kalman filter
+        # setup IMM Kalman filter
         # omega = an / v (an := accelleration normal to tangent)
+        # TODO: make usefull estimations for p and r_std
         # p : covariance
         # r_std : process noise variance
 
         self.km = imm.filterIMM(dt=dt, omega=self.omega, p=50.0, r_std=0.1, q_std=0.1)
+
+        # initialize the filter
         for x,y in self.tr:
             self.km.update(x,y)
+        # prediction equals actual position
         self.px = self.x
         self.py = self.y
+        # set new uncertainty
         self.updateSearchRange()
 
     def findHit(self, hits):
@@ -418,7 +429,7 @@ class track:
         #self.sy = self.km.yspl.get_residual()
 
         # may be this is too simple. take sigmaXX and sigmaYY and multiply by a factor
-        # TODO: THIS IS NOT WORKING WELL :-( (I had better results with a fixed value)
+        # THIS IS NOT WORKING WELL :-( (I had better results with a fixed value)
         #covaXX = self.km.bank.P[0,0]
         #covaYY = self.km.bank.P[3,3]
         #self.sx = 2.0 * self.maxm * covaXX + self.minm / 2.0
@@ -462,10 +473,7 @@ class track:
         self.predicts += 1
         xnew,ynew = self.km.predict(dt)
         print("[%s] predict %d,%d" %(self.name, xnew, ynew))
-        # >>> debug
         self.ptr.append([xnew,ynew])
-        # <<< debug
-        self.mu = self.km.mu_max
         self.px = xnew
         self.py = ynew
         self.updateDirection()

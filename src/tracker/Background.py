@@ -36,18 +36,23 @@ import numpy as np
     virtual void setDetectShadows(bool detectshadows)
 '''
 
-class SeperatorMOG2:
-    def __init__(self, hist=120, shadows=True):
+class SeperatorMOG2_OCL:
+    def __init__(self, hist=120, shadows=False):
     	# Use Gaussian mixture based subtractor
     	self.bgsub   = cv2.createBackgroundSubtractorMOG2(history=hist, varThreshold=70, detectShadows=shadows)
 
-    def getVarThreshold(self):
-    	return self.bgsub.getVarThreshold()
+    # do sepration with ocl (needs 50% on odroid)
+    def seperate(self, img):
+        rangeRes = self.bgsub.apply(cv2.UMat(img))
+        rangeRes = cv2.dilate(rangeRes, None, iterations=2)
+        return True,rangeRes.get()
 
-    def setVarThreshold(self, value):
-    	self.bgsub.setVarThreshold(value)
+class SeperatorMOG2:
+    def __init__(self, hist=120, shadows=False):
+    	# Use Gaussian mixture based subtractor
+    	self.bgsub   = cv2.createBackgroundSubtractorMOG2(history=hist, varThreshold=70, detectShadows=shadows)
 
-    #
+    # sepration
     def seperate(self, img):
         rangeRes = self.bgsub.apply(img)
         rangeRes = cv2.dilate(rangeRes, None, iterations=2)
@@ -133,12 +138,11 @@ class SeperatorGMG:
 '''
 
 class SeperatorKNN:
-    def __init__(self, hist=16, shadows=True):
+    def __init__(self, hist=8, shadows=True):
         # Use Gaussian mixture based subtractor
-        self.bgsub   = cv2.createBackgroundSubtractorKNN(hist, 400.0, shadows)
+        #history", "dist2Threshold", "detectShadows"
+        self.bgsub   = cv2.createBackgroundSubtractorKNN(history=hist, dist2Threshold=400.0, detectShadows=shadows)
 
-        if shadows:
-        	self.bgsub.setShadowValue(0)
 
     def getVarThreshold(self):
     	return self.bgsub.getDist2Threshold()
@@ -248,23 +252,24 @@ class simpleBackground:
         #self.mean = cv2.accumulateWeighted(gray, self.mean, 0.5)
         # use an old image to build the mean
         old_gray = self.stack.pop(0)
-        self.mean = cv2.accumulateWeighted(old_gray, self.mean, 0.1)
+        self.mean = cv2.accumulateWeighted(old_gray, self.mean, 0.05)
         self.stack.append(gray)
 
         # (src, dst, scale=1.0, shift=0.0)
         # dst = <uchar8> scale * src + shift
-        tmp_mean = cv2.convertScaleAbs(self.mean)
+        # tmp_mean = cv2.convertScaleAbs(self.mean)
 
         # calculate difference to running average
         #diff = 4 * cv2.absdiff(gray, tmp_mean)
-        diff = cv2.absdiff(gray, tmp_mean)
 
-        #diff = cv2.absdiff(gray, cv2.convertScaleAbs(self.mean))
+        diff = cv2.absdiff(gray, cv2.convertScaleAbs(self.mean))
 
-        #ret, thres = cv2.threshold(diff, self.threshold, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        ret, thres = cv2.threshold(diff, 180, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        #ret, thres = cv2.threshold(diff, self.threshold, 255, cv2.THRESH_BINARY)
+        # TODO: THRESH_OTSU creates a lot of noise on slightly noisy background
+        ret, thres = cv2.threshold(diff, self.threshold, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
         print("threshold: %d" % (ret))
+
         if ret > 9:
             thres = cv2.dilate(thres, None, iterations=3)
         else:

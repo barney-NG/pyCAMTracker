@@ -48,6 +48,8 @@ hthres = 400.0
 min_speed = 5
 #imageSizeX = 300
 #imageSizeY = 400
+#imageSizeX = 320
+#imageSizeY = 240
 imageSizeX = 640
 imageSizeY = 480
 
@@ -155,10 +157,11 @@ class App:
         self.tracker = SimpleTracker.SimpleTracker(imageSizeX = imageSizeX, imageSizeY = imageSizeY)
         #self.tracker = SimpleTrackerIMM.SimpleTracker(imageSizeX = imageSizeX, imageSizeY = imageSizeY)
 
-        #self.bgSeperator = Background.SeperatorMOG2(hist=8, shadows=False)
-        #self.bgSeperator = Background.SeperatorGMG(hist=64, shadows=False)
+        #self.bgSeperator = Background.SeperatorMOG2(hist=8)
+        self.bgSeperator = Background.SeperatorMOG2_OCL(hist=8)
+        #self.bgSeperator = Background.SeperatorGMG(hist=8, shadows=False)
         #self.bgSeperator = Background.SeperatorKNN(shadows=False)
-        self.bgSeperator = Background.simpleBackground()
+        #self.bgSeperator = Background.simpleBackground()
 
         #self.detector = cv2.SimpleBlobDetector_create(params)
         self.ddd = Blobber.blobDetector(params)
@@ -260,18 +263,18 @@ class App:
             i = self.index[0]
             #--- run some stuff
             ##print("run t1 %d" % (i))
-            new_time,frame = self.cap.read()
+            new_time,vis = self.cap.read()
 
-            if frame is None:
-                frame = self.vis
+            if vis is None:
+                vis = self.vis
 
-            vis = frame.copy()
             dt = new_time - old_time
             old_time = new_time
 
-            self.results[i].index += 1
-            self.results[i].vis = vis
+            # background sepration
             thrOk, self.results[i].thresHold = self.bgSeperator.seperate(vis)
+            self.results[i].vis = vis
+            self.results[i].index += 1
             #self.results[i].thresHold = self.thresHold
 
             #--- stuff ready
@@ -399,7 +402,7 @@ class App:
 
                 #-- t2 ---------------------------------------
                 #self.tracker.track(vis, deltaT)
-                keypoints = self.detector.detect(thresHold)
+                keypoints = self.ddd.detect(thresHold)
 
                 # coords: pts[:,:2] size: pts[:,2:]
                 #pts = np.array([[pt.pt[0],pt.pt[1],pt.size] for pt in keypoints]).reshape(-1, 3)
@@ -429,7 +432,6 @@ class App:
                 str_frate = '%6s' %  (frate)
 
             #-- t4 ---------------------------------------
-            cv2.imshow("Threshold", thresHold)
 
             #vis = cv2.drawKeypoints(vis, keypoints, np.array([]), (20,220,20), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
             #pts = np.array([pt.pt for pt in keypoints]).reshape(-1, 2)
@@ -442,7 +444,6 @@ class App:
                 cv2.drawMarker(vis, (int(xm),int(ym)), (20,220,220), cv2.MARKER_DIAMOND,10)
 
             for (ix,iy),ttrack in trackList.items():
-
                 ttrack.showTrack(vis, (0,255,0))
 
             cv2.putText(vis, str_frate, (3, 14), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (20,150,20), 2)
@@ -452,6 +453,8 @@ class App:
             #--
             #self.recSel.draw(vis)
             cv2.imshow(self.name, vis)
+            cv2.imshow("Threshold", thresHold)
+
             self.fcnt += 1
             #self.results[index].times[3] = 1000.0 * (clock() - t0)
             #print(self.results[index].times)

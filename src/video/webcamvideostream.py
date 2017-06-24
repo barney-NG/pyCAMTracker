@@ -15,9 +15,11 @@ class WebcamVideoStream:
 			self.source = int(self.source)
 
 		self.stream = cv2.VideoCapture(self.source)
-		if not self.isFile:
+		if not self.isFile: #CAP_PROP_AUTO_EXPOSURE
 			self.stream.set(cv2.CAP_PROP_FRAME_WIDTH, resolution[0])
 			self.stream.set(cv2.CAP_PROP_FRAME_HEIGHT, resolution[1])
+			self.stream.set(cv2.CAP_PROP_AUTO_EXPOSURE, False)
+
 
 		(self.grabbed, self.frame) = self.stream.read()
 

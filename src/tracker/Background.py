@@ -230,30 +230,34 @@ class simpleBackgroundV1:
         return True,thres
 
 class simpleBackground:
-    def __init__(self, delay=3, threshold=80):
+    def __init__(self, delay=3, threshold=10):
         self.maxlen = delay
         self.threshold = threshold
         self.stack  = []
         self.mean   = None
-        self.dark      = None
+        self.dark   = None
+        self.kernel = np.ones((3,3), np.uint8)
 
     def seperate(self, img):
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        gray = cv2.GaussianBlur(gray, (5, 5), 0)
+        gray = cv2.GaussianBlur(gray, (3, 3), 0)
 
         if self.mean is None:
             self.mean = gray.copy().astype("float32")
-            self.dark = np.zeros(gray.shape, np.uint8)
-            for i in range(self.maxlen):
-                self.stack.append(gray.copy())
+            #self.dark = np.zeros(gray.shape, np.uint8)
+            #for i in range(self.maxlen):
+            #    self.stack.append(gray.copy())
 
         # calculate a new running average (src, dst, alpha)
         # dst = (1-alpha) * dst + alpha * src
         #self.mean = cv2.accumulateWeighted(gray, self.mean, 0.5)
         # use an old image to build the mean
-        old_gray = self.stack.pop(0)
-        self.mean = cv2.accumulateWeighted(old_gray, self.mean, 0.05)
-        self.stack.append(gray)
+
+        #old_gray = self.stack.pop(0)
+        #self.mean = cv2.accumulateWeighted(old_gray, self.mean, 0.05)
+        #self.stack.append(gray)
+
+        self.mean = cv2.accumulateWeighted(gray, self.mean, 0.55)
 
         # (src, dst, scale=1.0, shift=0.0)
         # dst = <uchar8> scale * src + shift
@@ -264,15 +268,16 @@ class simpleBackground:
 
         diff = cv2.absdiff(gray, cv2.convertScaleAbs(self.mean))
 
-        #ret, thres = cv2.threshold(diff, self.threshold, 255, cv2.THRESH_BINARY)
+        ret, thres = cv2.threshold(diff, self.threshold, 255, cv2.THRESH_BINARY)
+        thres = cv2.morphologyEx(thres, cv2.MORPH_CLOSE, self.kernel, iterations = 2)
         # TODO: THRESH_OTSU creates a lot of noise on slightly noisy background
-        ret, thres = cv2.threshold(diff, self.threshold, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        #ret, thres = cv2.threshold(diff, self.threshold, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-        print("threshold: %d" % (ret))
+        #print("threshold: %d" % (ret))
 
-        if ret > 9:
-            thres = cv2.dilate(thres, None, iterations=3)
-        else:
-            thres = self.dark
+        #if ret > 9:
+        #    thres = cv2.dilate(thres, None, iterations=3)
+        #else:
+        #    thres = self.dark
 
         return True, thres

@@ -21,6 +21,7 @@ Kalman filter for constant speed, constant acceleration and constant turn rate
 class filterIMM:
     def __init__(self, dt=1.0, omega=1.0, p=1.0, r_std=1.0, q_std=1.e-3):
         #-- Kalman filters
+        self.omega = omega
         self.cv = KalmanFilter(6, 2)
         self.ca = KalmanFilter(6, 2)
         self.ct = KalmanFilter(6, 2)
@@ -40,8 +41,17 @@ class filterIMM:
                        [0.03, 0.90, 0.07],
                        [0.05, 0.05, 0.90]])
         # probabilty:   cv, ca, ct
-        mu3 = np.array([0.2,0.3,0.5])
+        #mu3 = np.array([0.2,0.3,0.5])
+        mu3 = np.array([0.3,0.5,0.2])
         self.initBank(mu3,M3)
+
+    def updateDT(self,dt=0.04,omega=None):
+        if omega is None:
+            omega = self.omega
+
+        self.updateFv(dt=dt)
+        self.updateFa(dt=dt)
+        self.updateFt(w=omega,dt=dt)
 
     def initBank(self, mu, M):
         self.bank = IMMEstimator(self.filters, mu, M)

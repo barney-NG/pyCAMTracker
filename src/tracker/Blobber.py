@@ -4,6 +4,7 @@
 
 import cv2
 import numpy as np
+import gc
 
 def byArea(cnt):
     x,y,w,h = cv2.boundingRect(cnt)
@@ -87,5 +88,12 @@ class blobDetector:
             valid_boxes.append(box)
 
         valid_boxes = self.removeIntersections(valid_boxes,self.delta)
+        
+        if len(valid_boxes) > 0:
+            if gc.isenabled():
+                gc.disable()
+        else:
+            if not gc.isenabled():
+                gc.enable()
 
         return valid_boxes

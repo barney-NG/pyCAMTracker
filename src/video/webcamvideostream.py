@@ -1,6 +1,6 @@
 # import the necessary packages
 from threading import Thread
-from time import time
+from time import clock
 import cv2
 
 class WebcamVideoStream:
@@ -54,7 +54,7 @@ class WebcamVideoStream:
 				(self.grabbed, self.frame) = self.stream.read()
 			self.time = self.stream.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
 		else:
-			self.time = time()
+			self.time = clock()
 
 		return self.time,self.frame
 

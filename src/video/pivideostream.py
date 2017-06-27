@@ -1,7 +1,7 @@
 # import the necessary packages
 from picamera.array import PiRGBArray
 from picamera import PiCamera
-from time import time
+from time import clock
 from threading import Thread,Event
 
 import cv2
@@ -20,8 +20,8 @@ class PiVideoStream():
 		# initialize the frame and the variable used to indicate
 		# if the thread should be stopped
 		self.thread = None
-		self.event  = Event()
-		self.event.set()
+		#self.event  = Event()
+		#self.event.set()
 		self.frame = None
 		self.stopped = False
 
@@ -37,11 +37,11 @@ class PiVideoStream():
 		for f in self.stream:
 			# grab the frame from the stream and clear the stream in
 			# preparation for the next frame
-			self.event.wait() # wait until previous frame is taken
+			#self.event.wait() # wait until previous frame is taken
 			self.frame = f.array
-			self.time = time()
+			#self.time = clock()
 			self.rawCapture.truncate(0)
-			self.event.clear() # block
+			#self.event.clear() # block
 
 			# if the thread indicator variable is set, stop the thread
 			# and resource camera resources
@@ -54,8 +54,8 @@ class PiVideoStream():
 	def read(self):
 		# return the frame most recently read
 		frame = self.frame.copy()
-		time = self.time
-		self.event.set() # take next frame
+		time  = clock()
+		#self.event.set() # take next frame
 		return time,frame
 
 	def stop(self):

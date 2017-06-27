@@ -20,6 +20,9 @@ class SimpleTracker():
         self.maxy = int(imageSizeY/minMovement)
 
         self.maxPredicts = 5
+        self.num_dts = 5
+        self.dtarray = np.ones(self.num_dts) * 0.04
+        self.dtindex = 0
 
         self.tracks0 = {}
         self.identifiedTracks = {}
@@ -37,6 +40,12 @@ class SimpleTracker():
         self.image = np.swapaxes(img,0,1)
         return self.image
 
+    def runningAverage(self, dt):
+        self.dtindex += 1
+        self.dtindex %= self.num_dts
+        self.dtarray[self.dtindex] = dt
+        return np.mean(self.dtarray)
+
     def emptyMovementMatrix(self):
         return np.zeros((self.maxx,self.maxy),np.int16)
 
@@ -46,17 +55,23 @@ class SimpleTracker():
         self.maxy = int(height/self.minm)
 
     def setMinMovement(self, newMinMovement):
-        while self.imageSizeX % newMinMovement != 0:
-            newMinMovement += 1
+        if self.imageSizeX % newMinMovement != 0:
+            newMinMovement += self.imageSizeX % newMinMovement
+
+        if newMinMovement > self.imageSizeX / 8:
+            newMinMovement = self.imageSizeX / 8
+        if newMinMovement > self.imageSizeY / 8:
+            newMinMovement = self.imageSizeY / 8
 
         self.minm = newMinMovement
-        self.resize(self.maxx, self.maxy)
+        self.resize(self.imageSizeX, self.imageSizeY)
 
     def setMaxMovement(self, newMaxMovement):
         self.maxm = newMaxMovement
 
-    def trackBoxes(self, vis, boxes, dt=0.1):
-        print("==========================================")
+    def trackBoxes(self, vis, boxes, dt=0.04):
+        dt = self.runningAverage(dt)
+        print("========================================== %4.2f" % (1000.0 * dt))
         pts = np.zeros(2*len(boxes)).reshape(-1,2)
         szs = np.zeros(len(boxes)).reshape(-1,1)
 
@@ -68,26 +83,26 @@ class SimpleTracker():
         #pts = np.array(([a[2]-a[0])/2,(a[3]-a[1])/2 for a in boxes]).reshape(-1, 2)
         #szs = np.array(([a[2]-a[0])*(a[3]-a[1]) for a in boxes]).reshape(-1, 2)
 
-        self._trackEngine(dt)
-        self._findNewTracks(pts, szs, dt)
+        self.trackObjects(dt)
+        self.newObjects(pts, szs, dt)
         return self.identifiedTracks
 
-    def trackContours(self, vis, pts, szs, dt=0.1):
+    def trackContours(self, vis, pts, szs, dt=0.04):
         print("==========================================")
-        self._trackEngine(dt)
-        self._findNewTracks(pts, szs, dt)
+        self.trackObjects(dt)
+        self.newObjects(pts, szs, dt)
         return self.identifiedTracks
 
-    def trackKeypoints(self, vis, keypoints, dt=0.1):
+    def trackKeypoints(self, vis, keypoints, dt=0.04):
         print("==========================================")
         pts = np.array([pt.pt for pt in keypoints]).reshape(-1, 2)
         szs = np.array([pt.size for pt in keypoints]).reshape(-1, 1)
-        self._trackEngine(dt)
-        self._findNewTracks(pts, szs, dt)
+        self.trackObjects(dt)
+        self.newObjects(pts, szs, dt)
         return self.identifiedTracks
 
-    # first stage of tracking process
-    def _trackEngine(self, dt):
+    # track already identified objects
+    def trackObjects(self, dt):
         #estimates   = self.emptyMovementMatrix()
         estimates = np.zeros((self.imageSizeX, self.imageSizeY), np.int16)
         # simple tracks
@@ -107,6 +122,7 @@ class SimpleTracker():
             if len(hits) > 0:
                 if self.estimates[ix,iy] > 0:
                     print("%d,%d estimation found!" % (ix,iy))
+                # This is the most important step in this loop
                 i = ttrack.findHit(hits[::,:2:])
                 if(i >= 0):
                     # update track and mask new input
@@ -152,7 +168,6 @@ class SimpleTracker():
             new_tracks[int(xest),int(yest)] = ttrack
             estimates = self.updateMask(estimates, int(xest), int(yest), ttrack.sx, ttrack.sy)
 
-
         self.identifiedTracks   = new_tracks
         self.estimates = estimates
 
@@ -175,8 +190,8 @@ class SimpleTracker():
 
             return mask
 
-    # second stage of tracking process
-    def _findNewTracks(self, new_pts_vector, new_szs_vector, dt):
+    # find new moving objects
+    def newObjects(self, new_pts_vector, new_szs_vector, dt):
         #scaled_pts = new_pts_vector * 1.0 / self.minm
         current = self.emptyMovementMatrix()
         # container for real coordinates
@@ -341,7 +356,8 @@ class track:
         self.angle = alpha2
         if abs(dt) < 1e-99:
             dt = 0.04
-        self.omega = (alpha1 - alpha2) / dt
+        self.omega   = (alpha1 - alpha2) / dt
+        self.dt      = dt
 
         # the track identity
         self._setIdentity()
@@ -406,7 +422,7 @@ class track:
         if self.predicts == 0:
             #old_angle = self.angle
             self.direction = np.array([self.x - self.tr[-2][0],
-                                    self.y - self.tr[-2][1]])
+                                       self.y - self.tr[-2][1]])
             self.angle = atan2(self.direction[1],self.direction[0])
             #new_omega = (self.angle - old_angle) / dt
             #delta_omega = self.omega - new_omega
@@ -416,8 +432,8 @@ class track:
             #    self.omega = new_omega
 
         else:
-            self.direction = np.array([self.px - self.x,
-                                       self.py - self.y])
+            self.direction = np.array([self.px - self.tr[-1][0],
+                                       self.py - self.tr[-1][1]])
 
             self.angle = atan2(self.direction[1],self.direction[0])
 
@@ -440,8 +456,8 @@ class track:
             self.sx = 2 * abs(self.x - self.tr[-2][0])
             self.sy = 2 * abs(self.y - self.tr[-2][1])
         else:
-            self.sx = 2 * abs(self.px - self.x)
-            self.sy = 2 * abs(self.py - self.y)
+            self.sx = 2 * abs(self.px - self.tr[-1][0])
+            self.sy = 2 * abs(self.py - self.tr[-1][1])
 
         if self.sx > self.maxm / 2:
             self.sx = self.maxm / 2
@@ -459,6 +475,12 @@ class track:
 
     def update(self, xnew, ynew, sznew, dt=0.04):
         print("[%s] update %d,%d" %(self.name, xnew, ynew))
+        #update_dt = abs(self.dt - dt) / self.dt > 0.1
+        if abs(self.dt - dt) / self.dt > 0.25:
+            print("updateDT: dt: %4.2f -> %4.2f" % (1000 * self.dt, 1000 * dt))
+            self.km.updateDT(dt)
+            self.dt = dt
+
         self.x = xnew; self.y = ynew
         self.szs = sznew
         self.predicts = 0
@@ -477,13 +499,6 @@ class track:
         self.px = xnew
         self.py = ynew
         self.updateDirection()
-        return (xnew,ynew)
-
-    def noMeasurement(self, dt):
-        self.predicts += 1
-        xnew,ynew = self.km.predict(dt)
-        self.km.update(xnew,ynew)
-        self.tr.append((xnew,ynew))
         return (xnew,ynew)
 
     def showTrack(self, vis, color):

@@ -158,10 +158,10 @@ class App:
         #self.tracker = SimpleTrackerIMM.SimpleTracker(imageSizeX = imageSizeX, imageSizeY = imageSizeY)
 
         #self.bgSeperator = Background.SeperatorMOG2(hist=8)
-        self.bgSeperator = Background.SeperatorMOG2_OCL(hist=8)
+        #self.bgSeperator = Background.SeperatorMOG2_OCL(hist=8)
         #self.bgSeperator = Background.SeperatorGMG(hist=8, shadows=False)
         #self.bgSeperator = Background.SeperatorKNN(shadows=False)
-        #self.bgSeperator = Background.simpleBackground()
+        self.bgSeperator = Background.simpleBackground()
 
         #self.detector = cv2.SimpleBlobDetector_create(params)
         self.ddd = Blobber.blobDetector(params)

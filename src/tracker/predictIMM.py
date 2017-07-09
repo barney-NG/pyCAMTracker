@@ -22,6 +22,8 @@ class filterIMM:
     def __init__(self, dt=1.0, omega=1.0, p=1.0, r_std=1.0, q_std=1.e-3):
         #-- Kalman filters
         self.omega = omega
+        self.q_std = q_std
+        self.dt    = dt
         self.cv = KalmanFilter(6, 2)
         self.ca = KalmanFilter(6, 2)
         self.ct = KalmanFilter(6, 2)
@@ -49,9 +51,12 @@ class filterIMM:
         if omega is None:
             omega = self.omega
 
+        self.dt = dt
         self.updateFv(dt=dt)
         self.updateFa(dt=dt)
         self.updateFt(w=omega,dt=dt)
+        # don't update Q too often
+        #self.updateQ(dt=dt, q_std=self.q_std)
 
     def initBank(self, mu, M):
         self.bank = IMMEstimator(self.filters, mu, M)
@@ -174,19 +179,5 @@ class filterIMM:
         for f, w in zip(self.filters, self.bank.mu):
             f.predict(dt)
             x += f._x * w
-
-        return((x[0], x[3]))
-
-    # make a prediction
-    # this routine should be moved to filterpy/Kalman/IMM.py
-    def predict1(self, dt=0.1):
-        x = np.zeros(self.bank.x.shape)
-        self.predicts += 1
-        mu_max = 0.0
-        for i,f in enumerate(self.filters):
-            f.predict()
-            if self.bank.mu[i] > mu_max:
-                mu_max = self.bank.mu[i]
-                x = f._x.copy()
 
         return((x[0], x[3]))

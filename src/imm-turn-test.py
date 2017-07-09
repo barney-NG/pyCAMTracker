@@ -4,7 +4,7 @@ import copy
 from filterpy.kalman import IMMEstimator
 from filterpy.kalman import KalmanFilter
 from filterpy.common import Q_discrete_white_noise
-from math import sin, cos, sqrt
+from math import sin, cos, sqrt, atan2
 from scipy.linalg import block_diag
 from tracker import simulateCircle as sc
 from tracker import predictIMM as imm
@@ -75,17 +75,21 @@ def linear_target(N=50):
 
 if __name__ == "__main__":
 
-    N = 50
-    omega = -0.04
+    N = 40
     dt = 0.04
     p = 100.
+    q = 5.
     #track = turning_target(N)
     track = circle_target(N)
     #track = linear_target(N)
+    alpha0 = atan2(track[0,2], track[0,0])
+    alpha1 = atan2(track[1,2], track[1,0])
+    omega = 1.41 * (alpha0 - alpha1) / dt
+    print(omega)
 
     # create noisy measurements
     zs = np.zeros((N, 2))
-    r = 1.
+    r = 0.5
     for i in range(N):
         px = track[i, 0] + np.random.randn()*r
         py = track[i, 2] + np.random.randn()*r
@@ -94,7 +98,7 @@ if __name__ == "__main__":
         zs[i, 1] = py
 
 
-    immfilter = imm.filterIMM(dt,omega,p,r,1.)
+    immfilter = imm.filterIMM(dt,omega,p,r,q)
     xstart = np.array([[10., 10., 0, 100., 1., 0]]).T
     immfilter.startAt(xstart)
     xs, probs = [], []

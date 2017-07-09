@@ -41,7 +41,7 @@ class SeperatorMOG2_OCL:
     	# Use Gaussian mixture based subtractor
     	self.bgsub   = cv2.createBackgroundSubtractorMOG2(history=hist, varThreshold=70, detectShadows=shadows)
 
-    # do sepration with ocl (needs 50% on odroid)
+    # do sepration with ocl (reduces computing time by 50% on odroid)
     def seperate(self, img):
         rangeRes = self.bgsub.apply(cv2.UMat(img))
         rangeRes = cv2.dilate(rangeRes, None, iterations=2)
@@ -244,40 +244,19 @@ class simpleBackground:
 
         if self.mean is None:
             self.mean = gray.copy().astype("float32")
-            #self.dark = np.zeros(gray.shape, np.uint8)
-            #for i in range(self.maxlen):
-            #    self.stack.append(gray.copy())
-
-        # calculate a new running average (src, dst, alpha)
-        # dst = (1-alpha) * dst + alpha * src
-        #self.mean = cv2.accumulateWeighted(gray, self.mean, 0.5)
-        # use an old image to build the mean
-
-        #old_gray = self.stack.pop(0)
-        #self.mean = cv2.accumulateWeighted(old_gray, self.mean, 0.05)
-        #self.stack.append(gray)
 
         self.mean = cv2.accumulateWeighted(gray, self.mean, 0.55)
 
         # (src, dst, scale=1.0, shift=0.0)
         # dst = <uchar8> scale * src + shift
-        # tmp_mean = cv2.convertScaleAbs(self.mean)
-
-        # calculate difference to running average
-        #diff = 4 * cv2.absdiff(gray, tmp_mean)
 
         diff = cv2.absdiff(gray, cv2.convertScaleAbs(self.mean))
 
-        ret, thres = cv2.threshold(diff, self.threshold, 255, cv2.THRESH_BINARY)
-        thres = cv2.morphologyEx(thres, cv2.MORPH_CLOSE, self.kernel, iterations = 2)
         # TODO: THRESH_OTSU creates a lot of noise on slightly noisy background
         #ret, thres = cv2.threshold(diff, self.threshold, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-        #print("threshold: %d" % (ret))
-
-        #if ret > 9:
-        #    thres = cv2.dilate(thres, None, iterations=3)
-        #else:
-        #    thres = self.dark
+        ret, thres = cv2.threshold(diff, self.threshold, 255, cv2.THRESH_BINARY)
+        thres = cv2.dilate(thres, None, iterations=2)
+        #thres = cv2.morphologyEx(thres, cv2.MORPH_CLOSE, self.kernel, iterations = 2)
 
         return True, thres

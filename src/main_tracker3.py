@@ -233,6 +233,9 @@ class App:
 
     def setupThreading(self):
         self.nbthreads  = cv2.getNumberOfCPUs()
+        if self.nbthreads > 4:
+            self.nbthreads = 4
+            
         self.threadpool = ThreadPool(processes = self.nbthreads)
         self.pending    = deque()
 

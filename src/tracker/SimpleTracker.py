@@ -76,8 +76,10 @@ class SimpleTracker():
         szs = np.zeros(len(boxes)).reshape(-1,1)
 
         for i,a in enumerate(boxes):
+            # center
             pts[i] = [a[0]+(a[2]-a[0])/2,a[1]+(a[3]-a[1])/2]
             #pts[i] = [(a[3]-a[1])/2,(a[2]-a[0])/2]
+            # area
             szs[i] = [(a[2]-a[0])*(a[3]-a[1])]
 
         #pts = np.array(([a[2]-a[0])/2,(a[3]-a[1])/2 for a in boxes]).reshape(-1, 2)
@@ -337,6 +339,7 @@ class track:
         alpha_new = atan2(old_track[-1][1], old_track[-1][0])
         alpha_old = atan2(old_track[-2][1], old_track[-2][0])
         self.angle = alpha_new
+        # check for a valid timestamp
         if abs(dt) < 1e-99:
             dt = 0.04
         self.omega   = (alpha_new - alpha_old) / dt
@@ -351,7 +354,7 @@ class track:
         # restrict the movement
         self.maxm = max_movement
         self.minm = min_movement
-        # max delta angle
+        # max delta angle for prediction
         self.dpi = pi/2.0
 
         # setup IMM Kalman filter
@@ -360,11 +363,12 @@ class track:
         # p : covariance
         # r_std : process noise variance
 
-        self.km = imm.filterIMM(dt=dt, omega=self.omega, p=50.0, r_std=0.1, q_std=0.1)
+        self.km = imm.filterIMM(dt=dt, omega=-self.omega, p=50.0, r_std=0.1, q_std=0.1)
 
         # initialize the filter
         for x,y in self.tr:
             self.km.update(x,y)
+        # read process covariance
         self.P = self.km.bank.P.diagonal()
         # prediction equals actual position
         self.px = self.x
@@ -374,6 +378,7 @@ class track:
         self.updateSearchRange()
         self.updateDirection(dt)
 
+    # find the nearest hit and check for distance and direction
     def findHit(self, hits):
         prediction = np.array([self.px,self.py])
         prediction.resize(1,2)
@@ -398,7 +403,7 @@ class track:
 
             if delta_angle > max_delta_angle:
                 print("[%s] [%d,%d] -> [%d,%d] delta_angle: %4.2f > %4.2f! (%6.2f)" % (self.name, self.x,self.y, xhit, yhit,delta_angle, max_delta_angle,degrees(delta_angle)))
-                minindex = -1
+                #@@@minindex = -1
             else:
                 # check if target is in valuable range
                 dist_max  = self.sx + self.sy
@@ -472,15 +477,18 @@ class track:
         if self.type == track.types.MOVER:
             #TODO: find a way how Kalman can handle a dt which varies by 200%!
             ddt = abs(self.dt - dt) / self.dt
-            if ddt > 0.25:
-                self.km.updateQ(dt=dt, q_std=self.km.q_std)
 
-            if ddt > 0.1:
-                print("updateDT: dt: %4.2f -> %4.2f" % (1000 * self.dt, 1000 * dt))
-                new_angle = atan2(ynew - self.tr[-2][1],xnew - self.tr[-2][0])
-                omega = (new_angle - self.angle) / dt
-                self.km.updateDT(dt=dt, omega=omega)
-                self.dt = dt
+            #if ddt > 0.25:
+                #self.km.updateQ(dt=dt, q_std=self.km.q_std)
+                #new_angle = atan2(ynew - self.tr[-2][1],xnew - self.tr[-2][0])
+                #omega = (new_angle - self.angle) / dt
+
+            #if ddt > 0.1:
+                #print("updateDT: dt: %4.2f -> %4.2f" % (1000 * self.dt, 1000 * dt))
+                #self.km.updateDT(dt=dt, omega=omega)
+
+            self.km.updateDT(dt=dt)
+            self.dt = dt
 
             self.x = xnew; self.y = ynew
             self.szs = sznew
@@ -544,9 +552,20 @@ class track:
             cv2.drawMarker(vis, (int(self.px), int(self.py)), (0,0,255), cv2.MARKER_TRIANGLE_DOWN,10)
             #cv2.circle(vis, (int(self.px), int(self.py)), r, (200,200,200), 1)
 
+            # prediction area
+            cova = int(self.P[0] + self.P[3])
+            if cova < 1:
+                ecol = (68,0,255)
+            elif cova < 10:
+                ecol = (68,68,255)
+            elif cova < 50:
+                ecol = (68,136,255)
+            else:
+                ecol = (68,204,255)
+
             startAngle = np.degrees(self.angle - self.dpi/2.0)
             endAngle = np.degrees(self.angle + self.dpi/2.0)
-            cv2.ellipse(vis, (x0, y0), (r, r), 0.0, startAngle, endAngle, (0,0,200), 2)
+            cv2.ellipse(vis, (x0, y0), (r, r), 0.0, startAngle, endAngle, ecol, 2)
 
         else:
             r = int(self.sx)

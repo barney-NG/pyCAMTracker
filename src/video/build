@@ -1,0 +1,2 @@
+g++ v4l2capture.c $(pkg-config opencv --libs) -lv4l2 -o ttt
+

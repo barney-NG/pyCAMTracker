@@ -49,7 +49,7 @@ maxd        = parser.getint('Object','maxsize')
 mind        = parser.getint('Object','minsize')
 hthres = 400.0
 min_speed = 5
-#imageSizeX = 300
+#imageSizeX = 304
 #imageSizeY = 400
 #imageSizeX = 320
 #imageSizeY = 240
@@ -74,7 +74,7 @@ params.blobColor = 255
 # Filter by Area.
 params.filterByArea = True
 params.minArea = 100
-params.maxArea = 10000
+params.maxArea = 25000
 
 # Filter by Circularity
 params.filterByCircularity = False
@@ -123,12 +123,16 @@ class App:
         self.name   = 'tracker'
         self.threaded = True
 
+        if(videoSrc == 0):
+            self.wtime = 1
+
         cv2.namedWindow(self.name)
         self.usePiCamera = usePiCamera
         global imageSizeX,imageSizeY
-        self.cap         = VideoStream(src=videoSrc, usePiCamera=usePiCamera,resolution=(imageSizeX,imageSizeY),framerate=55)
+        self.cap         = VideoStream(src=videoSrc, usePiCamera=usePiCamera,resolution=(imageSizeX,imageSizeY),framerate=60)
         self.cap.start()
-
+        sleep(1.0)
+        
         if usePiCamera:
             global contrast
             global saturation
@@ -235,7 +239,7 @@ class App:
         self.nbthreads  = cv2.getNumberOfCPUs()
         if self.nbthreads > 4:
             self.nbthreads = 4
-            
+
         self.threadpool = ThreadPool(processes = self.nbthreads)
         self.pending    = deque()
 
@@ -309,7 +313,7 @@ class App:
 
                 cv2.putText(vis, str_frate, (3, 14), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (20,150,20), 2)
                 cv2.imshow(self.name, vis)
-                cv2.imshow("Threshold", thresHold)
+                #cv2.imshow("Threshold", thresHold)
 
             #-- fill the queue
             if len(self.pending) < self.nbthreads:

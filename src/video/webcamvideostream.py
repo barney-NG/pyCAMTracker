@@ -19,6 +19,13 @@ class WebcamVideoStream:
 			self.stream.set(cv2.CAP_PROP_FRAME_WIDTH, resolution[0])
 			self.stream.set(cv2.CAP_PROP_FRAME_HEIGHT, resolution[1])
 			self.stream.set(cv2.CAP_PROP_AUTO_EXPOSURE, False)
+			self.stream.set(cv2.CAP_PROP_EXPOSURE, 100)
+			self.stream.set(cv2.CAP_PROP_GAIN, 50)
+			self.stream.set(cv2.CAP_PROP_AUTOFOCUS, False)
+			self.stream.set(cv2.CAP_PROP_FPS, 60)
+
+
+
 
 
 		(self.grabbed, self.frame) = self.stream.read()

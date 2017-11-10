@@ -43,8 +43,8 @@ class filterIMM:
                        [0.03, 0.90, 0.07],
                        [0.05, 0.05, 0.90]])
         # probabilty:   cv, ca, ct
-        #mu3 = np.array([0.2,0.3,0.5])
-        mu3 = np.array([0.3,0.5,0.2])
+        mu3 = np.array([0.2,0.4,0.4])
+        #mu3 = np.array([0.3,0.5,0.2])
         self.initBank(mu3,M3)
 
     def updateDT(self,dt=0.04,omega=None):
@@ -174,7 +174,6 @@ class filterIMM:
     def predict(self, dt=0.1):
         x = np.zeros(self.bank.x.shape)
         self.predicts += 1
-
         # build output according filter probabilities
         for f, w in zip(self.filters, self.bank.mu):
             f.predict(dt)

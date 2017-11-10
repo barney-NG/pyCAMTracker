@@ -6,8 +6,18 @@ import cv2
 import numpy as np
 import gc
 
+class boxcontainer:
+    center = np.zeros(4,np.int32)
+    rect   = np.zeros(4,np.int32)
+    chist  = np.zeros(16,np.uint8)
+
 def byArea(cnt):
     x,y,w,h = cv2.boundingRect(cnt)
+    return w*h
+
+def byBoxArea(box):
+    w = box[2] - box[0]
+    h = box[3] - box[1]
     return w*h
 
 '''
@@ -29,8 +39,10 @@ class blobDetector:
     def removeIntersections(self, boxes):
         cleaned_boxes = []
 
+        # sort boxes by area first
+        # boxes = sorted(boxes, key=byBoxArea, reverse=True )
+
         # TODO: numpy should do this much faster
-        # the box list should be ordered by size (biggest first)
         for i,ao in enumerate(boxes):
             # skip "dead" boxes
             if ao[0] + ao[1] + ao[2] + ao[3] == 0:
@@ -59,10 +71,11 @@ class blobDetector:
                     ao[2] = max(ao[2],b[2])
                     ao[3] = max(ao[3],b[3])
                     # ...and mark it "dead" afterwards
-                    b[0] = 0
-                    b[1] = 0
-                    b[2] = 0
-                    b[3] = 0
+                    b = 0
+                    #b[0] = 0
+                    #b[1] = 0
+                    #b[2] = 0
+                    #b[3] = 0
 
         # eliminate all "dead" boxes
         for box in boxes:
@@ -91,8 +104,6 @@ class blobDetector:
     def detect(self, img):
         img2,contours,hierarchy = cv2.findContours(cv2.UMat(img), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
-        # sort contours by area first
-        contours = sorted(contours, key=byArea, reverse=True )
         # eliminate invalid contours
         valid_boxes = []
         box_counter = 0
@@ -114,6 +125,7 @@ class blobDetector:
             box_counter += 1
             if box_counter > self.max_boxes:
                 break
+
 
         # join all boxes in the near range
         valid_boxes = self.removeIntersections(valid_boxes)

@@ -37,25 +37,37 @@ import numpy as np
 '''
 
 class SeperatorMOG2_OCL:
-    def __init__(self, hist=120, shadows=False):
+    def __init__(self, hist=16, shadows=False):
     	# Use Gaussian mixture based subtractor
-    	self.bgsub   = cv2.createBackgroundSubtractorMOG2(history=hist, varThreshold=70, detectShadows=shadows)
+    	self.bgsub   = cv2.createBackgroundSubtractorMOG2(history=hist, varThreshold=33, detectShadows=shadows)
 
     # do sepration with ocl (reduces computing time by 50% on odroid)
     def seperate(self, img):
-        rangeRes = self.bgsub.apply(cv2.UMat(img))
-        rangeRes = cv2.dilate(rangeRes, None, iterations=2)
+        h,w = img.shape[:2]
+        #img = cv2.pyrDown(cv2.UMat(img))
+        img = cv2.resize(cv2.UMat(img),(0,0),0.3,0.3,cv2.INTER_AREA)
+        rangeRes = self.bgsub.apply(img)
+        #rangeRes = cv2.pyrUp(rangeRes)
+        rangeRes = cv2.resize(rangeRes,(w,h))
+        ret, rangeRes = cv2.threshold(rangeRes, 10, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        #rangeRes = cv2.dilate(rangeRes, None, iterations=2)
         return True,rangeRes.get()
 
 class SeperatorMOG2:
     def __init__(self, hist=120, shadows=False):
     	# Use Gaussian mixture based subtractor
-    	self.bgsub   = cv2.createBackgroundSubtractorMOG2(history=hist, varThreshold=70, detectShadows=shadows)
+    	self.bgsub   = cv2.createBackgroundSubtractorMOG2(history=hist, varThreshold=33, detectShadows=shadows)
 
     # sepration
     def seperate(self, img):
+        h,w = img.shape[:2]
+        #img = cv2.pyrDown(cv2.UMat(img))
+        img = cv2.resize(img,(w/2,h/2))
         rangeRes = self.bgsub.apply(img)
-        rangeRes = cv2.dilate(rangeRes, None, iterations=2)
+        #rangeRes = cv2.pyrUp(rangeRes)
+        rangeRes = cv2.resize(rangeRes,(w,h))
+        ret, rangeRes = cv2.threshold(rangeRes, 10, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        #rangeRes = cv2.dilate(rangeRes, None, iterations=2)
         return True,rangeRes
 
 '''
@@ -230,30 +242,30 @@ class simpleBackgroundV1:
         return True,thres
 
 class simpleBackground:
-    def __init__(self, delay=3, threshold=10):
-        self.maxlen = delay
+    def __init__(self, threshold=.033):
         self.threshold = threshold
-        self.stack  = []
         self.mean   = None
-        self.dark   = None
-        self.kernel = np.ones((3,3), np.uint8)
+        #self.kernel = np.ones((3,3), np.uint8)
 
     def seperate(self, img):
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        # faster with smaller image. (background separation is expensive)
+        # gray = cv2.cvtColor(img[0:img.shape[0]-1, int(img.shape[1]*(1-ROI)):img.shape[1]-1], cv2.COLOR_BGR2GRAY)
         gray = cv2.GaussianBlur(gray, (3, 3), 0)
 
         if self.mean is None:
             self.mean = gray.copy().astype("float32")
 
-        self.mean = cv2.accumulateWeighted(gray, self.mean, 0.55)
+        self.mean = cv2.accumulateWeighted(gray, self.mean, 0.033)
 
         # (src, dst, scale=1.0, shift=0.0)
         # dst = <uchar8> scale * src + shift
 
         diff = cv2.absdiff(gray, cv2.convertScaleAbs(self.mean))
+        #diff = cv2.norm(gray, cv2.convertScaleAbs(self.mean), cv2.NORM_L1)
 
-        # TODO: THRESH_OTSU creates a lot of noise on slightly noisy background
-        #ret, thres = cv2.threshold(diff, self.threshold, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        # THRESH_OTSU creates a lot of noise on slightly noisy background
+        # ret, thres = cv2.threshold(diff, self.threshold, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
         ret, thres = cv2.threshold(diff, self.threshold, 255, cv2.THRESH_BINARY)
         thres = cv2.dilate(thres, None, iterations=2)

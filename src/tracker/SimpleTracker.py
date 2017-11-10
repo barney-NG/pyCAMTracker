@@ -26,10 +26,11 @@ class SimpleTracker():
 
         self.tracks0 = {}
         self.identifiedTracks = {}
-        self.last     = None
+        self.maxtracks = 5
         self.lastHits = {}
         self.estimates = np.zeros((self.imageSizeX, self.imageSizeY), np.int16)
         self.image = self.emptyMovementMatrix()
+        self.last  = self.emptyMovementMatrix()
 
     def debugImage(self,r,g,b):
         sx,sy = r.shape
@@ -69,42 +70,66 @@ class SimpleTracker():
     def setMaxMovement(self, newMaxMovement):
         self.maxm = newMaxMovement
 
-    def trackBoxes(self, vis, boxes, dt=0.04):
+    def trackRects(self, vis, rects, dt=0.04):
         #dt = self.runningAverage(dt)
         print("========================================== %4.2f" % (1000.0 * dt))
-        pts = np.zeros(2*len(boxes)).reshape(-1,2)
-        szs = np.zeros(len(boxes)).reshape(-1,1)
+        centers = np.zeros((len(rects),2))
+        areas   = np.zeros(len(rects)).reshape(-1,1)
 
-        for i,a in enumerate(boxes):
+        for i,a in enumerate(rects):
             # center
-            pts[i] = [a[0]+(a[2]-a[0])/2,a[1]+(a[3]-a[1])/2]
+            centers[i] = [a[0]+a[2]/2,a[1]+a[3]/2]
             #pts[i] = [(a[3]-a[1])/2,(a[2]-a[0])/2]
             # area
-            szs[i] = [(a[2]-a[0])*(a[3]-a[1])]
+            areas[i] = [(a[2]*a[3])]
 
         #pts = np.array(([a[2]-a[0])/2,(a[3]-a[1])/2 for a in boxes]).reshape(-1, 2)
         #szs = np.array(([a[2]-a[0])*(a[3]-a[1]) for a in boxes]).reshape(-1, 2)
 
-        self.trackObjects(dt)
-        self.newObjects(pts, szs, dt)
+        self.addNewObjects(centers, areas, dt)
+        self.trackKnownObjects(dt)
+
+        return self.identifiedTracks
+
+    def trackBoxes(self, vis, boxes, dt=0.04):
+        #dt = self.runningAverage(dt)
+        print("========================================== %4.2f" % (1000.0 * dt))
+
+        centers = np.zeros(2*len(boxes)).reshape(-1,2)
+        areas   = np.zeros(len(boxes)).reshape(-1,1)
+
+        for i,a in enumerate(boxes):
+            # center
+            centers[i] = [a[0]+(a[2]-a[0])/2,a[1]+(a[3]-a[1])/2]
+            #pts[i] = [(a[3]-a[1])/2,(a[2]-a[0])/2]
+            # area
+            areas[i] = [(a[2]-a[0])*(a[3]-a[1])]
+
+        #pts = np.array(([a[2]-a[0])/2,(a[3]-a[1])/2 for a in boxes]).reshape(-1, 2)
+        #szs = np.array(([a[2]-a[0])*(a[3]-a[1]) for a in boxes]).reshape(-1, 2)
+
+
+        self.trackKnownObjects(dt)
+        self.addNewObjects(centers, areas, dt)
+
         return self.identifiedTracks
 
     def trackContours(self, vis, pts, szs, dt=0.04):
         print("==========================================")
-        self.trackObjects(dt)
-        self.newObjects(pts, szs, dt)
+        self.trackKnownObjects(dt)
+        self.addNewObjects(pts, szs, dt)
         return self.identifiedTracks
 
     def trackKeypoints(self, vis, keypoints, dt=0.04):
         print("==========================================")
         pts = np.array([pt.pt for pt in keypoints]).reshape(-1, 2)
         szs = np.array([pt.size for pt in keypoints]).reshape(-1, 1)
-        self.trackObjects(dt)
-        self.newObjects(pts, szs, dt)
+        self.trackKnownObjects(dt)
+        self.addNewObjects(pts, szs, dt)
         return self.identifiedTracks
 
     # track already identified objects
-    def trackObjects(self, dt):
+    def trackKnownObjects(self, dt):
         #estimates   = self.emptyMovementMatrix()
         estimates = np.zeros((self.imageSizeX, self.imageSizeY), np.int16)
         # simple tracks
@@ -126,15 +151,15 @@ class SimpleTracker():
 
                 if c > 0:
                     print("%d,%d estimation found! (%s)" % (ix,iy,chr(c)))
-                # This is the most important step in this loop
-                i = ttrack.findHit(hits[::,:2:])
-                if(i >= 0):
-                    # update track and mask new input
-                    ttrack.update(hits[i,0], hits[i,1], hits[i,2], dt)
-                    areax = max(ttrack.sx, self.minm)
-                    areay = max(ttrack.sy, self.minm)
-                    estimates = self.updateMask(estimates, int(hits[i,0]), int(hits[i,1]), areax, areay, ttrack.name)
-                    hits = np.delete(hits,i,axis=0)
+                    # This is the most important step in this loop
+                    i = ttrack.findHit(hits[::,:2:])
+                    if(i >= 0):
+                        # update track and mask new input
+                        ttrack.update(hits[i,0], hits[i,1], hits[i,2], dt)
+                        areax = max(ttrack.sx, self.minm)
+                        areay = max(ttrack.sy, self.minm)
+                        estimates = self.updateMask(estimates, int(hits[i,0]), int(hits[i,1]), areax, areay, ttrack.name)
+                        hits = np.delete(hits,i,axis=0)
 
             # make a new bet
             xest,yest = ttrack.predict(dt)
@@ -187,7 +212,7 @@ class SimpleTracker():
             return mask
 
     # find new moving objects
-    def newObjects(self, new_pts_vector, new_szs_vector, dt):
+    def addNewObjects(self, new_pts_vector, new_szs_vector, dt):
         #scaled_pts = new_pts_vector * 1.0 / self.minm
         current = self.emptyMovementMatrix()
         # container for real coordinates
@@ -212,7 +237,9 @@ class SimpleTracker():
             if(self.estimates[x,y] == 0):
                 current[xx,yy] += 1
             else:
+                # >> debug
                 print("%d,%d is masked out!" % (x,y))
+                # << debug
 
             # keep position of original coordinates in movement matrix
             # !!! ignore double hits
@@ -222,7 +249,7 @@ class SimpleTracker():
             hits[xx,yy] = [(int(x),int(y),size)]
 
         # determine movement between two frames
-        if self.last is not None:
+        if self.last is not None and len(self.lastHits) > 0:
             # update the count of new occurences
             diff = current - self.last
             #                 r      g        b
@@ -255,6 +282,7 @@ class SimpleTracker():
                             tr = self.tracks0[xold,yold]
                         else:
                             tr = []
+                            tr.append([xold,yold])
 
                         tr.append([xnew,ynew])
                         # >>> debug
@@ -275,15 +303,26 @@ class SimpleTracker():
                             print("UNALLOWED UPDATE!")
                             ttrack = self.identifiedTracks[xold,yold]
                             ttrack.update(xnew,ynew,size,dt)
+                            del tr[-1]
                         else:
                             # add a mature track for further investigation
-                            if len(tr) == 3:
-                                self.identifiedTracks[xnew,ynew] = track(tr,size,dt,self.minm,self.maxm)
+                            if len(tr) >= 3:
+                                dx = tr[2][0] - tr[0][0]
+                                dy = tr[2][1] - tr[0][1]
+
+                                print "deltas: ", (dx),(dy),track.numtracks
+                                if((abs(dx)+abs(dy)) >= 3*self.minm and track.numtracks < self.maxtracks):
+                                    self.identifiedTracks[xnew,ynew] = track(tr,size,dt,self.minm,self.maxm)
                             else:
                                 # add current track to tracking list
                                 new_tracks[xnew,ynew] = tr[:]
                     else:
                         print("%d,%d no track in range (%d)" % (xnew,ynew,self.maxm))
+        else:
+            if len(new_pts_vector) > 0:
+                print("start new cycle")
+                print new_pts_vector
+
 
         self.last     = current
         self.lastHits = hits
@@ -313,6 +352,7 @@ class SimpleTracker():
 class track:
     track_names = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     tindex      = 0
+    numtracks   = 0
     def enum(**enums):
         return type('Enum', (), enums)
     types = enum(NOISE=1, MOVER=2, EATER=3)
@@ -321,12 +361,14 @@ class track:
         return self.prio < other.prio
 
     def __del__(self):
+        track.numtracks -= 1
         print("destructor: [%s]" % (self.name))
 
     def __init__(self, old_track, size, dt=.04, min_movement=5, max_movement=30):
         self.x    = old_track[-1][0]
         self.y    = old_track[-1][1]
         self.prio = len(old_track)
+        track.numtracks += 1
 
         # size of te object
         self.szs = size
@@ -355,7 +397,7 @@ class track:
         self.maxm = max_movement
         self.minm = min_movement
         # max delta angle for prediction
-        self.dpi = pi/2.0
+        self.dpi = pi/3.0
 
         # setup IMM Kalman filter
         # omega = an / v (an := accelleration normal to tangent)
@@ -363,7 +405,7 @@ class track:
         # p : covariance
         # r_std : process noise variance
 
-        self.km = imm.filterIMM(dt=dt, omega=-self.omega, p=50.0, r_std=0.1, q_std=0.1)
+        self.km = imm.filterIMM(dt=dt, omega=2.0, p=150.0, r_std=0.75, q_std=0.01)
 
         # initialize the filter
         for x,y in self.tr:
@@ -373,21 +415,23 @@ class track:
         # prediction equals actual position
         self.px = self.x
         self.py = self.y
-        print("[%s] init %d,%d" %(self.name, self.x, self.y))
+        print("[%s] init (%d,%d -> %d,%d -> %d,%d)" %(self.name, self.tr[0][0], self.tr[0][1], self.tr[1][0], self.tr[1][1], self.x, self.y))
         # set new uncertainty
         self.updateSearchRange()
         self.updateDirection(dt)
 
     # find the nearest hit and check for distance and direction
+    # I trust the Kalman filter to predict the correct direction
+    # so we are just searching for the nearest point in hit list
     def findHit(self, hits):
         prediction = np.array([self.px,self.py])
         prediction.resize(1,2)
         # do some numpy magic
-        direction  = prediction - hits
+        direction  = hits - prediction
         # should be hypot but we use the longest of both distances
         distance   = np.abs(direction).max(-1)
         minindex   = np.argmin(distance,axis=0)
-        mindist    = np.amin(distance)
+        mindist    = np.amin(distance,axis=0)
 
         # here is the nearest target to the prediction
         xhit = hits[minindex][0]
@@ -396,14 +440,21 @@ class track:
         if self.type == track.types.MOVER:
             # check if target is in right direction
             max_delta_angle = self.dpi
-            angle2hit     = atan2(yhit-self.y, xhit-self.x)
-            delta_angle   = abs(self.angle - angle2hit)
-            #if delta_angle > pi:
-            #    delta_angle = 2.0 * pi - delta_angle
+            angle2hit       = atan2(   yhit-self.y,    xhit-self.x)
+            angle2pred      = atan2(self.py-self.y, self.px-self.x)
 
-            if delta_angle > max_delta_angle:
-                print("[%s] [%d,%d] -> [%d,%d] delta_angle: %4.2f > %4.2f! (%6.2f)" % (self.name, self.x,self.y, xhit, yhit,delta_angle, max_delta_angle,degrees(delta_angle)))
-                #@@@minindex = -1
+
+            delta_angle     = angle2pred - angle2hit
+            #if delta_angle > pi - max_delta_angle:
+            #    delta_angle = pi - delta_angle
+
+            if abs(delta_angle) > max_delta_angle:
+                print("mindist: %d" % (mindist))
+                print("angel: %6.2f" % (degrees(self.angle)))
+                print("angle to hit  %6.2f [%d,%d] -> [%d,%d]" %(degrees(angle2hit),self.x,self.y, xhit, yhit))
+                print("angle to pred %6.2f [%d,%d] -> [%d,%d]" %(degrees(angle2pred),self.x,self.y, self.px, self.py))
+                print("!!!!!!!!![%s] [%d,%d] -> [%d,%d] delta_angle: %4.2f > %4.2f! (%6.2f)" % (self.name, self.x,self.y, xhit, yhit,delta_angle, max_delta_angle,degrees(delta_angle)))
+                minindex = -1
             else:
                 # check if target is in valuable range
                 dist_max  = self.sx + self.sy
@@ -413,11 +464,52 @@ class track:
         else:
             # check if target is somehow covered by the object
             radius = sqrt(self.szs)
+            if radius > self.maxm:
+                radius = self.maxm
             if mindist > radius:
                 print("[%s] [%d,%d] -> [%d,%d] mindist: %4.2f > %4.2f! EATER" % (self.name, self.x,self.y, xhit, yhit, mindist, radius))
                 minindex = -1
 
         return minindex
+
+    # this is the "ismoving" criteria
+    # one of the following criteria must match
+    # the sum of all dx must move from xmin to xmax
+    # the sum of all dy must move from ymin to ymax
+
+    def isMoving(self, steps=10):
+        sum_dx = 0
+        sum_dy = 0
+
+        xmin = 9999
+        xmax = 0
+        ymin = 9999
+        ymax = 0
+
+        xold   = -1
+        yold   = -1
+
+        for x,y in self.tr[-steps:]:
+            xmin = min(xmin,x)
+            ymin = min(ymin,y)
+            xmax = max(xmax,x)
+            ymax = max(ymax,y)
+            if xold > 0:
+                sum_dx += (x - xold)
+                sum_dy += (y - yold)
+            xold = x
+            yold = y
+
+        abs_dx = xmax - xmin
+        abs_dy = ymax - ymin
+
+        if abs(sum_dx) >= abs(abs_dx) or abs(sum_dy) >= abs(abs_dy):
+            pass
+        else:
+            print("@@sumdx: %d  absdx: %d" % (sum_dx, abs_dx))
+            print("@@sumdy: %d  absdy: %d" % (sum_dy, abs_dy))
+
+        return abs(sum_dx) >= abs(abs_dx) or abs(sum_dy) >= abs(abs_dy)
 
     def updateDirection(self,dt=0.04):
         # make direction vector using the last prediction
@@ -427,6 +519,7 @@ class track:
             self.direction = np.array([self.x - self.tr[-2][0],
                                        self.y - self.tr[-2][1]])
             self.angle = atan2(self.direction[1],self.direction[0])
+
             #new_omega = (self.angle - old_angle) / dt
             #delta_omega = self.omega - new_omega
             #if abs(delta_omega) > abs(self.omega * 0.3):
@@ -444,27 +537,29 @@ class track:
 
     def updateSearchRange(self):
         # filter performance
-        covaXX = self.P[0]
-        covaYY = self.P[3]
-        print("[%s] covariance %6.2f, %6.2f" %(self.name, covaXX, covaYY))
+        # >> debug
+        #covaXX = self.P[0]
+        #covaYY = self.P[3]
+        #print("[%s] covariance %6.2f, %6.2f" %(self.name, covaXX, covaYY))
+        # << debug
 
         # adapt search range to last 2 * prediction
-        if self.predicts == 0:
-            self.sx = 2 * abs(self.x - self.tr[-2][0])
-            self.sy = 2 * abs(self.y - self.tr[-2][1])
-        else:
-            self.sx = 2 * abs(self.px - self.tr[-1][0])
-            self.sy = 2 * abs(self.py - self.tr[-1][1])
+        #if self.predicts == 0:
+        self.sx = 2 * abs(self.x - self.tr[-2][0])
+        self.sy = 2 * abs(self.y - self.tr[-2][1])
+        #else:
+        #    self.sx = 2 * abs(self.px - self.tr[-1][0])
+        #    self.sy = 2 * abs(self.py - self.tr[-1][1])
 
         # is this track noise or a serious mover?
-        #if self.prio > 5 and self.P[0] + self.P[3] > 10.0:
+        #if (self.P[0] + self.P[3] > 10.0) and (self.prio > 5) and (self.prio < 15):
         #    self.type = track.types.EATER
 
         # upper limit
-        #if self.sx > self.maxm / 2:
-        #    self.sx = self.maxm / 2
-        #if self.sy > self.maxm / 2:
-        #    self.sy = self.maxm / 2
+        if self.sx > self.maxm / 2:
+            self.sx = self.maxm / 2
+        if self.sy > self.maxm / 2:
+            self.sy = self.maxm / 2
 
         # lower limit
         if self.sx < self.minm:
@@ -475,11 +570,10 @@ class track:
     def update(self, xnew, ynew, sznew, dt=0.04):
         print("[%s] update %d,%d" %(self.name, xnew, ynew))
         if self.type == track.types.MOVER:
-            #TODO: find a way how Kalman can handle a dt which varies by 200%!
-            ddt = abs(self.dt - dt) / self.dt
 
-            #if ddt > 0.25:
-                #self.km.updateQ(dt=dt, q_std=self.km.q_std)
+            ddt = abs(self.dt - dt) / self.dt
+            if ddt > 0.25:
+                self.km.updateQ(dt=dt, q_std=self.km.q_std)
                 #new_angle = atan2(ynew - self.tr[-2][1],xnew - self.tr[-2][0])
                 #omega = (new_angle - self.angle) / dt
 
@@ -499,7 +593,14 @@ class track:
             self.prio += 1
             self.updateDirection(dt)
             self.updateSearchRange()
+            if not self.isMoving():
+                print("[%s] -> EATER" % (self.name))
+                self.type == track.types.EATER
         else:
+            if self.isMoving():
+                print("[%s] -> MOVER" % (self.name))
+                self.type == track.types.MOVER
+
             self.x = xnew; self.y = ynew
             self.predicts = 0
             self.szs = sznew
@@ -512,14 +613,25 @@ class track:
 
     def predict(self, dt=0.04):
         self.predicts += 1
+        # MOVER/EATER is a way to handle noise (not working yet)
         if self.type == track.types.MOVER:
-            xnew,ynew = self.km.predict(dt)
-            print("[%s] predict %d,%d" %(self.name, xnew, ynew))
-            self.ptr.append([xnew,ynew])
-            self.px = xnew
-            self.py = ynew
-            self.updateDirection()
-            self.updateSearchRange()
+            if self.P[0] + self.P[3] > 25.0 and self.prio < 10:
+                # reduce the search range to a minimum if
+                # covariance is high and maturity is low
+                # this is also a way to handle noise (also not working)
+                print("[%s] covariance > 25 -> prediction SKIPPED!" % (self.name))
+                self.sx = self.minm
+                self.sy = self.minm
+                xnew = self.px = self.x
+                ynew = self.py = self.y
+            else:
+                xnew,ynew = self.km.predict(dt * self.predicts)
+                #print("[%s] predict %d,%d (%d)" %(self.name, xnew, ynew, self.predicts))
+                self.ptr.append([xnew,ynew])
+                self.px = xnew
+                self.py = ynew
+                self.updateDirection()
+                #self.updateSearchRange()
         else:
             print("[%s] predict -> EATER!" %(self.name))
             xnew = self.px = self.x
@@ -583,10 +695,10 @@ class track:
 
     def printTrack(self):
         sys.stdout.write("[%s]:" %(self.name))
-        for x,y in self.tr:
+        for x,y in self.tr[-3:]:
             sys.stdout.write("  %d,%d -> " %(x,y))
 
-        print(" px:%d py:%d (#%d sx:%4.2f sy:%4.2f)" %(self.px,self.py,self.predicts,self.sx, self.sy))
+        print(" (#%d px:%d py:%d cx: %4.2f cy: %4.2f)" % (self.predicts, self.px,self.py,self.P[0], self.P[3]))
 
     def _setIdentity(self):
         self.name = track.track_names[track.tindex]
